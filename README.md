@@ -2,6 +2,12 @@
 
 二人で共有する家計簿を管理するWebアプリケーションです。支出の記録・予算管理・データの可視化ができます。
 
+## 🌐 デモサイト
+
+**[GitHub Pagesでライブデモを体験](https://yamac-music.github.io/kakeibo-app-react/)**
+
+※ デモサイトでは匿名認証が有効になっており、すぐに試すことができます。
+
 ![家計簿アプリ](https://via.placeholder.com/800x400?text=Kakeibo+App+Screenshot)
 
 ## ✨ 主な機能
@@ -118,6 +124,22 @@ npm run build
 3. ビルドコマンド: `npm run build`
 4. 公開ディレクトリ: `dist`
 5. 環境変数を設定
+
+### GitHub Pagesでのデプロイ
+
+1. GitHubリポジトリの **Settings** → **Pages** にアクセス
+2. **Source** を "GitHub Actions" に設定
+3. **Secrets and variables** → **Actions** で以下の環境変数を設定：
+   ```
+   VITE_FIREBASE_API_KEY
+   VITE_FIREBASE_AUTH_DOMAIN
+   VITE_FIREBASE_PROJECT_ID
+   VITE_FIREBASE_STORAGE_BUCKET
+   VITE_FIREBASE_MESSAGING_SENDER_ID
+   VITE_FIREBASE_APP_ID
+   VITE_FIREBASE_MEASUREMENT_ID
+   ```
+4. mainブランチにプッシュすると自動でデプロイされます
 
 ## 📱 使用方法
 
