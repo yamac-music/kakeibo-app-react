@@ -95,8 +95,8 @@ const validateFirebaseConfig = (config) => {
     const missingFields = requiredFields.filter(field => !config[field]);
     
     if (missingFields.length > 0) {
-        console.error('Firebase設定が不完全です。以下のフィールドが不足しています:', missingFields);
-        console.error('環境変数を確認してください:', missingFields.map(field => `VITE_FIREBASE_${field.replace(/([A-Z])/g, '_$1').toUpperCase()}`));
+        console.warn('Firebase設定が不完全です。以下のフィールドが不足しています:', missingFields);
+        console.warn('環境変数を確認してください:', missingFields.map(field => `VITE_FIREBASE_${field.replace(/([A-Z])/g, '_$1').toUpperCase()}`));
         return false;
     }
     return true;
@@ -112,22 +112,27 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Firebase設定の検証
-if (!validateFirebaseConfig(firebaseConfig)) {
-    throw new Error('Firebase設定エラー: 環境変数を確認してください。');
-}
+// Firebase設定の検証とアプリの初期化
+const isFirebaseConfigured = validateFirebaseConfig(firebaseConfig);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-kakeibo-app-id'; // アプリID
 
 // Firebaseアプリの初期化
 let firebaseApp, auth, db;
-try {
-    firebaseApp = initializeApp(firebaseConfig);
-    auth = getAuth(firebaseApp); // Firebase Authenticationのインスタンス
-    db = getFirestore(firebaseApp); // Firestoreのインスタンス
-    console.log('Firebase初期化が完了しました');
-} catch (error) {
-    console.error('Firebase初期化エラー:', error);
-    throw new Error('Firebaseの初期化に失敗しました。設定を確認してください。');
+let isFirebaseAvailable = false;
+
+if (isFirebaseConfigured) {
+    try {
+        firebaseApp = initializeApp(firebaseConfig);
+        auth = getAuth(firebaseApp); // Firebase Authenticationのインスタンス
+        db = getFirestore(firebaseApp); // Firestoreのインスタンス
+        isFirebaseAvailable = true;
+        console.log('Firebase初期化が完了しました');
+    } catch (error) {
+        console.error('Firebase初期化エラー:', error);
+        isFirebaseAvailable = false;
+    }
+} else {
+    console.warn('Firebase設定がないため、ローカルストレージモードで動作します');
 }
 
 // --- アプリケーションのデフォルト値 ---
@@ -214,6 +219,11 @@ function App() {
     // --- Effectフック ---
     // Firebase認証状態の監視
     useEffect(() => {
+        if (!isFirebaseAvailable) {
+            setIsAuthReady(true);
+            return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setCurrentUser(user); // 認証済みユーザーをセット
@@ -236,11 +246,11 @@ function App() {
             setIsAuthReady(true); // 認証処理の準備完了
         });
         return () => unsubscribe(); // クリーンアップ時にリスナーを解除
-    }, []);
+    }, [isFirebaseAvailable]);
 
     // ユーザー設定 (名前) の読み込み (Firestoreから)
     useEffect(() => {
-        if (!isAuthReady || !currentUser) return; // 認証が準備できていなければ何もしない
+        if (!isFirebaseAvailable || !isAuthReady || !currentUser) return; // Firebase未設定または認証が準備できていなければ何もしない
 
         const settingsPath = getUserSettingsDocPath();
         if (!settingsPath) return;
@@ -275,7 +285,7 @@ function App() {
 
     // 支出データの読み込み (Firestoreから、リアルタイム更新)
     useEffect(() => {
-        if (!isAuthReady || !currentUser) return; // 認証が準備できていなければ何もしない
+        if (!isFirebaseAvailable || !isAuthReady || !currentUser) return; // Firebase未設定または認証が準備できていなければ何もしない
 
         const expensesPath = getExpensesCollectionPath();
         if (!expensesPath) return;
@@ -309,7 +319,7 @@ function App() {
 
     // 予算データの読み込み (Firestoreから、リアルタイム更新)
     useEffect(() => {
-        if (!isAuthReady || !currentUser) return;
+        if (!isFirebaseAvailable || !isAuthReady || !currentUser) return;
 
         const budgetPath = getBudgetDocPath();
         if (!budgetPath) {
@@ -705,8 +715,58 @@ function App() {
     };
 
     // --- レンダリング ---
+    // Firebase未設定の場合はデモモード表示
+    if (!isFirebaseAvailable) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-slate-100">
+                <div className="max-w-2xl text-center p-6">
+                    <div className="text-3xl font-bold text-sky-700 mb-4">🏠 家計簿アプリ（デモモード）</div>
+                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-6">
+                        <div className="font-semibold mb-2">⚠️ Firebase設定が見つかりません</div>
+                        <p className="text-sm">
+                            現在デモモードで表示されています。完全な機能を利用するには、管理者がFirebaseの環境変数を設定する必要があります。
+                        </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
+                        <h3 className="text-xl font-semibold text-slate-700 mb-4">📊 主な機能</h3>
+                        <ul className="text-left text-slate-600 space-y-2">
+                            <li>• 💰 支出の記録と管理</li>
+                            <li>• 🎯 カテゴリ別予算設定</li>
+                            <li>• 📈 グラフによるデータ可視化</li>
+                            <li>• 👥 二人での家計共有</li>
+                            <li>• ⚖️ 自動精算計算</li>
+                            <li>• 💾 データのバックアップ機能</li>
+                        </ul>
+                    </div>
+                    <div className="space-y-4">
+                        <p className="text-slate-600">
+                            このアプリケーションは React + Firebase で構築されており、<br/>
+                            リアルタイムでのデータ同期とセキュアなデータ管理を提供します。
+                        </p>
+                        <div className="flex justify-center space-x-4">
+                            <a 
+                                href="https://github.com/yamac-music/kakeibo-app-react"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-slate-700 hover:bg-slate-800 text-white px-6 py-2 rounded-md transition-colors"
+                            >
+                                📖 ソースコードを見る
+                            </a>
+                            <button 
+                                onClick={() => window.location.reload()}
+                                className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-2 rounded-md transition-colors"
+                            >
+                                🔄 再読み込み
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // 認証準備ができていない場合はローディング表示
-    if (!isAuthReady) {
+    if (isFirebaseAvailable && !isAuthReady) {
         return (
             <div className="flex justify-center items-center h-screen bg-slate-100">
                 <div className="text-xl font-semibold">読み込み中...</div>
@@ -714,7 +774,7 @@ function App() {
         );
     }
     // ユーザーがいない場合（匿名認証失敗など）
-    if (!currentUser) {
+    if (isFirebaseAvailable && !currentUser) {
         return (
             <div className="flex justify-center items-center h-screen bg-slate-100">
                 <div className="max-w-md text-center p-6">
