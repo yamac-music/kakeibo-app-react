@@ -1,6 +1,6 @@
-# 二人暮らしの家計簿アプリ
+# React Firebase 家計簿アプリ
 
-二人で共有する家計簿を管理するWebアプリケーションです。支出の記録・予算管理・データの可視化ができます。
+Firebase Authentication対応の家計簿アプリケーションです。Docker環境で開発・テスト・本番デプロイが可能です。
 
 ## 🌐 デモサイト
 
@@ -12,6 +12,7 @@
 
 ## ✨ 主な機能
 
+- ✅ **Firebase Authentication**: メール/パスワード認証
 - 📊 **支出管理**: 日々の支出を簡単に記録・編集・削除
 - 💰 **予算管理**: カテゴリ別の月間予算設定と実績比較
 - 👥 **二人での共有**: ユーザー名をカスタマイズして支払者を管理
@@ -19,17 +20,26 @@
 - ⚖️ **精算機能**: 二人の支払額を自動計算し、精算すべき金額を表示
 - 💾 **データバックアップ**: JSON形式でのエクスポート・インポート機能
 - 🔒 **プライベート**: Firebase認証によるセキュアなデータ管理
+- 🐳 **Docker対応**: 開発・テスト・本番環境をコンテナ化
 
 ## 🛠️ 技術スタック
 
-- **フロントエンド**: React 18 + Vite
+- **フロントエンド**: React 19 + Vite
+- **認証**: Firebase Authentication
+- **データベース**: Firebase Firestore
+- **ルーティング**: React Router
 - **スタイリング**: Tailwind CSS
 - **アイコン**: Lucide React
 - **グラフ**: Recharts
-- **バックエンド**: Firebase (Firestore + Authentication)
-- **デプロイ**: Vercel / Netlify 対応
+- **テスト**: Vitest + Testing Library
+- **コンテナ**: Docker + Docker Compose
+- **本番**: Nginx (静的配信)
 
-## 🚀 セットアップ
+## 🐳 Docker環境での使用方法（推奨）
+
+### 前提条件
+- Docker
+- Docker Compose
 
 ### 1. リポジトリのクローン
 
@@ -38,26 +48,11 @@ git clone https://github.com/your-username/kakeibo-app.git
 cd kakeibo-app
 ```
 
-### 2. 依存関係のインストール
+### 2. Firebase設定
+
+`.env.local`ファイルにFirebase設定を記入：
 
 ```bash
-npm install
-```
-
-### 3. Firebase設定
-
-1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成
-2. Firestore Database を有効化
-3. Authentication で匿名認証を有効化
-4. `.env.example` を `.env` にコピーし、Firebase設定を入力
-
-```bash
-cp .env.example .env
-```
-
-`.env` ファイルに以下の値を設定：
-
-```env
 VITE_FIREBASE_API_KEY=your_api_key_here
 VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your_project_id
@@ -67,7 +62,65 @@ VITE_FIREBASE_APP_ID=your_app_id
 VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 ```
 
-### 4. Firestoreセキュリティルールの設定
+### 3. 開発環境
+
+```bash
+# 開発サーバー起動（ホットリロード対応）
+docker-compose --profile dev up --build
+
+# バックグラウンドで起動
+docker-compose --profile dev up --build -d
+
+# ログ確認
+docker-compose --profile dev logs -f app-dev
+
+# 停止
+docker-compose --profile dev down
+```
+
+開発サーバーは http://localhost:5173 でアクセス可能です。
+
+### 4. テスト実行
+
+```bash
+# テスト実行
+docker-compose --profile test run --rm app-test npm run test:run
+
+# インタラクティブテスト（ウォッチモード）
+docker-compose --profile test run --rm app-test npm run test
+
+# カバレッジ付きテスト
+docker-compose --profile test run --rm app-test npm run test:coverage
+```
+
+### 5. 本番環境
+
+```bash
+# 本番ビルド＆起動
+docker-compose --profile prod up --build
+
+# バックグラウンドで起動
+docker-compose --profile prod up --build -d
+```
+
+本番環境は http://localhost:80 でアクセス可能です。
+
+## 🚀 ローカル開発（非Docker）
+
+### 1. 依存関係のインストール
+
+```bash
+npm install
+```
+
+### 2. Firebase設定
+
+1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成
+2. Firestore Database を有効化
+3. Authentication でメール/パスワード認証を有効化
+4. `.env.local` ファイルに Firebase設定を記入
+
+### 3. Firestoreセキュリティルールの設定
 
 Firebase Console の Firestore Database > ルール にて以下を設定：
 
@@ -75,26 +128,17 @@ Firebase Console の Firestore Database > ルール にて以下を設定：
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /artifacts/{appId}/users/{userId} {
-      match /settings/userNames {
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-      }
-      match /settings/budgets {
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-      }
-      match /expenses/{expenseId} {
-        allow read, delete: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null && request.auth.uid == userId 
-                        && request.resource.data.uid == request.auth.uid;
-        allow update: if request.auth != null && request.auth.uid == userId 
-                        && request.resource.data.uid == request.auth.uid;
-      }
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == userId &&
+                          (resource == null || !resource.data.keys().hasAny(['uid']) || resource.data.uid == request.auth.uid) &&
+                          (request.data == null || !request.data.keys().hasAny(['uid']) || request.data.uid == request.auth.uid);
     }
   }
 }
 ```
 
-### 5. 開発サーバーの起動
+### 4. 開発サーバーの起動
 
 ```bash
 npm run dev
@@ -141,13 +185,59 @@ npm run build
    ```
 4. mainブランチにプッシュすると自動でデプロイされます
 
+## 📁 プロジェクト構成
+
+```
+src/
+├── components/
+│   ├── auth/              # 認証関連コンポーネント
+│   │   ├── Login.jsx      # ログイン画面
+│   │   ├── Signup.jsx     # 新規登録画面
+│   │   ├── ForgotPassword.jsx # パスワードリセット
+│   │   └── PrivateRoute.jsx   # 認証保護ルート
+│   └── Home.jsx           # メインアプリケーション
+├── contexts/
+│   └── AuthContext.jsx   # 認証コンテキスト
+├── test/                  # テストファイル
+│   ├── setup.js          # テスト設定
+│   ├── App.test.jsx      # アプリケーションテスト
+│   ├── AuthContext.test.jsx # 認証テスト
+│   └── Login.test.jsx    # ログインテスト
+├── firebase.js           # Firebase設定
+└── App.jsx              # ルーティング設定
+
+# Docker関連
+├── Dockerfile            # マルチステージビルド対応
+├── docker-compose.yml    # 開発・テスト・本番環境定義
+├── nginx.conf           # 本番環境Nginx設定
+└── .dockerignore        # Docker除外ファイル
+```
+
+## 🧪 テスト
+
+テストは以下を含みます：
+- 認証フローのテスト
+- コンポーネントのレンダリングテスト
+- Firebase未設定時のデモモード表示テスト
+
+```bash
+# ローカルでのテスト実行
+npm run test            # ウォッチモード
+npm run test:run        # 一回実行
+npm run test:coverage   # カバレッジ付き
+
+# Dockerでのテスト実行
+docker-compose --profile test run --rm app-test npm run test:run
+```
+
 ## 📱 使用方法
 
-1. **初回利用**: アプリにアクセスすると自動的に匿名ユーザーとして認証されます
-2. **ユーザー名設定**: 設定ボタンから二人の名前をカスタマイズできます
-3. **支出記録**: 右下の赤いボタンから支出を記録します
-4. **予算設定**: 左上の目標ボタンから月間予算を設定できます
-5. **データ管理**: 設定画面からデータのエクスポート・インポートが可能です
+1. **新規登録**: `/signup` でアカウントを作成
+2. **ログイン**: メールアドレスとパスワードでログイン
+3. **ユーザー名設定**: 設定ボタンから二人の名前をカスタマイズ
+4. **支出記録**: 右下の赤いボタンから支出を記録
+5. **予算設定**: 左上の目標ボタンから月間予算を設定
+6. **データ管理**: 設定画面からデータのエクスポート・インポートが可能
 
 ## 🔒 プライバシー・セキュリティ
 
