@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 認証されたユーザーが自分のデータのみアクセス可能
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == userId &&
+                          (resource == null || !resource.data.keys().hasAny(['uid']) || resource.data.uid == request.auth.uid) &&
+                          (request.data == null || !request.data.keys().hasAny(['uid']) || request.data.uid == request.auth.uid);
+    }
+    
+    // 支出データ専用ルール
+    match /artifacts/{appId}/users/{userId}/expenses/{expenseId} {
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == userId &&
+                          (resource == null || resource.data.uid == request.auth.uid) &&
+                          request.data.uid == request.auth.uid;
+    }
+    
+    // 設定データ専用ルール
+    match /artifacts/{appId}/users/{userId}/settings/{settingId} {
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == userId &&
+                          (resource == null || resource.data.uid == request.auth.uid) &&
+                          request.data.uid == request.auth.uid;
+    }
+  }
+}

@@ -12,7 +12,10 @@
       "Bash(cat:*)",
       "Bash(git check-ignore:*)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:yamac-music.github.io)"
+      "WebFetch(domain:yamac-music.github.io)",
+      "Bash(npm install:*)",
+      "Bash(docker-compose:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
