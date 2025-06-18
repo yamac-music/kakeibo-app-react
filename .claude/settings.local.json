@@ -25,7 +25,9 @@
       "Bash(npm i:*)",
       "Bash(ls:*)",
       "Bash(rm:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(grep:*)",
+      "Bash(npm run preview:*)"
     ],
     "deny": []
   }
