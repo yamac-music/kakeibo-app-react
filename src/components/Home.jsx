@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut, Calculator as CalculatorIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut } from 'lucide-react';
 
 // Firebaseのインポート
 import { 
@@ -40,164 +40,6 @@ const formatDateToInput = (dateStringOrDate) => {
     return `${y}-${m}-${d}`;
 };
 
-// --- 電卓コンポーネント ---
-const Calculator = ({ onResult, onClose }) => {
-    const [display, setDisplay] = useState('0');
-    const [previousValue, setPreviousValue] = useState(null);
-    const [operation, setOperation] = useState(null);
-    const [waitingForNewValue, setWaitingForNewValue] = useState(false);
-
-    const handleNumber = (num) => {
-        if (waitingForNewValue) {
-            setDisplay(String(num));
-            setWaitingForNewValue(false);
-        } else {
-            setDisplay(display === '0' ? String(num) : display + num);
-        }
-    };
-
-    const handleDecimal = () => {
-        if (waitingForNewValue) {
-            setDisplay('0.');
-            setWaitingForNewValue(false);
-        } else if (!display.includes('.')) {
-            setDisplay(display + '.');
-        }
-    };
-
-    const handleOperation = (nextOperation) => {
-        const inputValue = parseFloat(display);
-
-        if (isNaN(inputValue)) return;
-
-        if (previousValue === null) {
-            setPreviousValue(inputValue);
-        } else if (operation && !waitingForNewValue) {
-            const currentValue = previousValue || 0;
-            const newValue = calculate(currentValue, inputValue, operation);
-
-            if (isNaN(newValue) || !isFinite(newValue)) {
-                setDisplay('エラー');
-                setPreviousValue(null);
-                setOperation(null);
-                setWaitingForNewValue(true);
-                return;
-            }
-
-            setDisplay(String(newValue));
-            setPreviousValue(newValue);
-        }
-
-        setWaitingForNewValue(true);
-        setOperation(nextOperation);
-    };
-
-    const calculate = (firstValue, secondValue, operation) => {
-        switch (operation) {
-            case '+':
-                return firstValue + secondValue;
-            case '-':
-                return firstValue - secondValue;
-            case '×':
-                return firstValue * secondValue;
-            case '÷':
-                return secondValue !== 0 ? firstValue / secondValue : NaN;
-            default:
-                return secondValue;
-        }
-    };
-
-    const handleEquals = () => {
-        const inputValue = parseFloat(display);
-        
-        if (isNaN(inputValue)) return;
-        
-        if (previousValue !== null && operation) {
-            const newValue = calculate(previousValue, inputValue, operation);
-            
-            if (isNaN(newValue) || !isFinite(newValue)) {
-                setDisplay('エラー');
-            } else {
-                setDisplay(String(newValue));
-            }
-            
-            setPreviousValue(null);
-            setOperation(null);
-            setWaitingForNewValue(true);
-        }
-    };
-
-    const handleClear = () => {
-        setDisplay('0');
-        setPreviousValue(null);
-        setOperation(null);
-        setWaitingForNewValue(false);
-    };
-
-    const handleUse = () => {
-        const value = parseFloat(display);
-        if (!isNaN(value) && value >= 0 && isFinite(value)) {
-            onResult(Math.round(value));
-            onClose();
-        } else {
-            alert('有効な数値を入力してください。');
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-80">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">電卓</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-                        <XCircle size={20} />
-                    </button>
-                </div>
-                
-                <div className="bg-gray-100 p-4 rounded mb-4 text-right text-2xl font-mono">
-                    {display}
-                </div>
-
-                <div className="grid grid-cols-4 gap-2">
-                    <button onClick={handleClear} className="bg-red-500 text-white p-3 rounded hover:bg-red-600 col-span-2">
-                        C
-                    </button>
-                    <button onClick={() => handleOperation('÷')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">
-                        ÷
-                    </button>
-                    <button onClick={() => handleOperation('×')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">
-                        ×
-                    </button>
-
-                    <button onClick={() => handleNumber(7)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">7</button>
-                    <button onClick={() => handleNumber(8)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">8</button>
-                    <button onClick={() => handleNumber(9)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">9</button>
-                    <button onClick={() => handleOperation('-')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">-</button>
-
-                    <button onClick={() => handleNumber(4)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">4</button>
-                    <button onClick={() => handleNumber(5)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">5</button>
-                    <button onClick={() => handleNumber(6)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">6</button>
-                    <button onClick={() => handleOperation('+')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">+</button>
-
-                    <button onClick={() => handleNumber(1)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">1</button>
-                    <button onClick={() => handleNumber(2)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">2</button>
-                    <button onClick={() => handleNumber(3)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">3</button>
-                    <button onClick={handleEquals} className="bg-green-500 text-white p-3 rounded hover:bg-green-600 row-span-2">=</button>
-
-                    <button onClick={() => handleNumber(0)} className="bg-gray-200 p-3 rounded hover:bg-gray-300 col-span-2">0</button>
-                    <button onClick={handleDecimal} className="bg-gray-200 p-3 rounded hover:bg-gray-300">.</button>
-                </div>
-
-                <button 
-                    onClick={handleUse}
-                    className="w-full mt-4 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
-                >
-                    この値を使用 ({display})
-                </button>
-            </div>
-        </div>
-    );
-};
 
 // --- メインホームコンポーネント ---
 function Home() {
@@ -221,10 +63,6 @@ function Home() {
 
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
-
-    // 電卓関連のstate
-    const [showCalculator, setShowCalculator] = useState(false);
-    const [calculatorTarget, setCalculatorTarget] = useState(null);
 
     // --- Firestoreコレクションパスの定義 ---
     const getExpensesCollectionPath = useCallback(() => {
@@ -594,18 +432,6 @@ function Home() {
         reader.readAsText(file); 
     };
 
-    // 電卓機能
-    const handleCalculatorResult = (result) => {
-        if (calculatorTarget) {
-            calculatorTarget.value = result;
-            calculatorTarget.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-    };
-
-    const openCalculator = (inputElement) => {
-        setCalculatorTarget(inputElement);
-        setShowCalculator(true);
-    };
 
     return (
         <div className="min-h-screen bg-slate-100 p-4 md:p-6 lg:p-8 font-sans">
@@ -905,7 +731,6 @@ function Home() {
                         setShowExpenseForm(false);
                         setEditingExpense(null);
                     }}
-                    onOpenCalculator={openCalculator}
                 />
             )}
 
@@ -944,22 +769,12 @@ function Home() {
                 <TermsModal onClose={() => setShowTermsModal(false)} />
             )}
 
-            {/* 電卓モーダル */}
-            {showCalculator && (
-                <Calculator 
-                    onResult={handleCalculatorResult}
-                    onClose={() => {
-                        setShowCalculator(false);
-                        setCalculatorTarget(null);
-                    }}
-                />
-            )}
         </div>
     );
 }
 
 // --- 支出フォームモーダルコンポーネント ---
-const ExpenseFormModal = ({ editingExpense, user1Name, user2Name, onSave, onClose, onOpenCalculator }) => {
+const ExpenseFormModal = ({ editingExpense, user1Name, user2Name, onSave, onClose }) => {
     const [description, setDescription] = useState(editingExpense?.description || '');
     const [amount, setAmount] = useState(editingExpense?.amount || '');
     const [category, setCategory] = useState(editingExpense?.category || CATEGORIES[0]);
@@ -984,7 +799,7 @@ const ExpenseFormModal = ({ editingExpense, user1Name, user2Name, onSave, onClos
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">
@@ -1014,27 +829,15 @@ const ExpenseFormModal = ({ editingExpense, user1Name, user2Name, onSave, onClos
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             金額
                         </label>
-                        <div className="flex">
-                            <input
-                                type="number"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="金額を入力"
-                                min="1"
-                                required
-                            />
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    const input = e.target.parentElement.querySelector('input[type="number"]');
-                                    onOpenCalculator(input);
-                                }}
-                                className="px-3 py-2 bg-blue-500 text-white border border-blue-500 rounded-r-md hover:bg-blue-600 transition-colors"
-                            >
-                                <CalculatorIcon size={16} />
-                            </button>
-                        </div>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="金額を入力"
+                            min="1"
+                            required
+                        />
                     </div>
 
                     <div>
@@ -1111,7 +914,7 @@ const SettingsModal = ({ user1Name, user2Name, onSaveUserNames, onExportData, on
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">設定</h3>
@@ -1233,7 +1036,7 @@ const BudgetModal = ({ currentMonth, monthlyBudgets, onSave, onClose }) => {
     const totalBudget = Object.values(tempBudgets).reduce((sum, budget) => sum + budget, 0);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">
@@ -1294,7 +1097,7 @@ const BudgetModal = ({ currentMonth, monthlyBudgets, onSave, onClose }) => {
 
 // --- プライバシーポリシーモーダル ---
 const PrivacyModal = ({ onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">プライバシーポリシー</h3>
@@ -1334,7 +1137,7 @@ const PrivacyModal = ({ onClose }) => (
 
 // --- 利用規約モーダル ---
 const TermsModal = ({ onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">利用規約</h3>
