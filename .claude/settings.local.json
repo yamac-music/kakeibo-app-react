@@ -15,7 +15,16 @@
       "WebFetch(domain:yamac-music.github.io)",
       "Bash(npm install:*)",
       "Bash(docker-compose:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run lint)",
+      "Bash(claude doctor)",
+      "Bash(claude --version)",
+      "Bash(node:*)",
+      "Bash(npm --version)",
+      "Bash(npm i:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
