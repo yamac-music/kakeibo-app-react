@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, AlertCircle, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, AlertCircle, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut, Calculator, Delete, UserPlus, Mail, Check, X, Share } from 'lucide-react';
 
 // Firebaseのインポート
 import { 
@@ -13,7 +13,8 @@ import {
     query, 
     Timestamp,
     writeBatch,
-    getDocs
+    getDocs,
+    where
 } from 'firebase/firestore';
 
 import { db, isFirebaseAvailable, appId } from '../firebase';
@@ -64,70 +65,107 @@ function Home() {
 
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
+    
+    // 共有機能関連のstate
+    const [showSharingModal, setShowSharingModal] = useState(false);
+    const [currentGroup, setCurrentGroup] = useState(null);
+    const [invitations, setInvitations] = useState([]);
 
     // --- Firestoreコレクションパスの定義 ---
     const getExpensesCollectionPath = useCallback(() => {
         if (!currentUser) return null;
-        return `artifacts/${appId}/users/${currentUser.uid}/expenses`;
-    }, [currentUser]);
+        const groupId = currentGroup?.id || `personal_${currentUser.uid}`;
+        return `artifacts/${appId}/groups/${groupId}/expenses`;
+    }, [currentUser, currentGroup]);
 
     const getUserSettingsDocPath = useCallback(() => {
         if (!currentUser) return null;
-        return `artifacts/${appId}/users/${currentUser.uid}/settings/userNames`;
-    }, [currentUser]);
+        const groupId = currentGroup?.id || `personal_${currentUser.uid}`;
+        return `artifacts/${appId}/groups/${groupId}/settings/userNames`;
+    }, [currentUser, currentGroup]);
 
     const getBudgetDocPath = useCallback(() => {
         if (!currentUser) return null;
-        return `artifacts/${appId}/users/${currentUser.uid}/settings/budgets`;
+        const groupId = currentGroup?.id || `personal_${currentUser.uid}`;
+        return `artifacts/${appId}/groups/${groupId}/settings/budgets`;
+    }, [currentUser, currentGroup]);
+
+    // 共有機能のパス
+    const getGroupsCollectionPath = useCallback(() => {
+        if (!currentUser) return null;
+        return `artifacts/${appId}/groups`;
     }, [currentUser]);
 
-    // --- ログアウト処理 ---
-    const handleLogout = async () => {
-        try {
-            await logout();
-        } catch (error) {
-            console.error('ログアウトエラー:', error);
-        }
-    };
+    const getInvitationsCollectionPath = useCallback(() => {
+        if (!currentUser) return null;
+        return `artifacts/${appId}/invitations`;
+    }, [currentUser]);
 
-    // Firebase未設定時のデモモード表示
-    if (!isFirebaseAvailable) {
-        return (
-            <div className="flex justify-center items-center h-screen bg-slate-100">
-                <div className="max-w-2xl text-center p-6">
-                    <div className="text-3xl font-bold text-sky-700 mb-4">🏠 家計簿アプリ（デモモード）</div>
-                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-6">
-                        <div className="font-semibold mb-2">⚠️ Firebase設定が見つかりません</div>
-                        <p className="text-sm">
-                            現在デモモードで表示されています。完全な機能を利用するには、管理者がFirebaseの環境変数を設定する必要があります。
-                        </p>
-                    </div>
-                    <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
-                        <h3 className="text-xl font-semibold text-slate-700 mb-4">📊 主な機能</h3>
-                        <ul className="text-left text-slate-600 space-y-2">
-                            <li>• 💰 支出の記録と管理</li>
-                            <li>• 🎯 カテゴリ別予算設定</li>
-                            <li>• 📈 グラフによるデータ可視化</li>
-                            <li>• 👥 二人での家計共有</li>
-                            <li>• ⚖️ 自動精算計算</li>
-                            <li>• 💾 データのバックアップ機能</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+    const getUserGroupsCollectionPath = useCallback(() => {
+        if (!currentUser) return null;
+        return `artifacts/${appId}/userGroups/${currentUser.uid}/groups`;
+    }, [currentUser]);
+
+    // --- Effect Hooks (条件付き呼び出しを回避するため全て先頭に配置) ---
+    
+    // ユーザーのグループ一覧を読み込み
+    useEffect(() => {
+        if (!isFirebaseAvailable || !currentUser) return;
+
+        const userGroupsPath = getUserGroupsCollectionPath();
+        if (!userGroupsPath) return;
+
+        const q = query(collection(db, userGroupsPath));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const groups = [];
+            querySnapshot.forEach((doc) => {
+                groups.push({ id: doc.id, ...doc.data() });
+            });
+            
+            if (groups.length > 0 && !currentGroup) {
+                // デフォルトで最初のグループを選択
+                setCurrentGroup(groups[0]);
+            } else if (groups.length === 0 && !currentGroup) {
+                // 個人用のデフォルトグループを設定
+                setCurrentGroup({ 
+                    id: `personal_${currentUser.uid}`, 
+                    name: '個人家計簿', 
+                    role: 'owner' 
+                });
+            }
+        }, (error) => {
+            console.error("ユーザーグループの読み込みエラー:", error);
+        });
+
+        return () => unsubscribe();
+    }, [currentUser, getUserGroupsCollectionPath, currentGroup]);
+
+    // 招待一覧を読み込み
+    useEffect(() => {
+        if (!isFirebaseAvailable || !currentUser) return;
+
+        const invitationsPath = getInvitationsCollectionPath();
+        if (!invitationsPath) return;
+
+        const q = query(
+            collection(db, invitationsPath), 
+            where('inviteeEmail', '==', currentUser.email),
+            where('status', '==', 'pending')
         );
-    }
+        
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const invites = [];
+            querySnapshot.forEach((doc) => {
+                invites.push({ id: doc.id, ...doc.data() });
+            });
+            setInvitations(invites);
+        }, (error) => {
+            console.error("招待一覧の読み込みエラー:", error);
+        });
 
-    // 認証されていない場合（このコンポーネントはPrivateRouteで保護されているので通常は到達しない）
-    if (!currentUser) {
-        return (
-            <div className="flex justify-center items-center h-screen bg-slate-100">
-                <div className="text-xl font-semibold">認証が必要です</div>
-            </div>
-        );
-    }
+        return () => unsubscribe();
+    }, [currentUser, getInvitationsCollectionPath]);
 
-    // --- Effectフック ---
     // ユーザー設定 (名前) の読み込み (Firestoreから)
     useEffect(() => {
         if (!isFirebaseAvailable || !currentUser) return;
@@ -223,6 +261,227 @@ function Home() {
         });
         return () => unsubscribe();
     }, [currentUser, getBudgetDocPath]);
+
+    // --- 計算ロジック (メモ化) ---
+    const monthlyFilteredExpenses = useMemo(() => {
+        const monthYearStr = formatMonthYear(currentMonth);
+        return expenses
+            .filter(expense => formatMonthYear(new Date(expense.date)) === monthYearStr)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
+    }, [expenses, currentMonth]);
+
+    const totals = useMemo(() => { 
+        let user1ExpenseTotal = 0;
+        let user2ExpenseTotal = 0; 
+        const expenseCategories = {};
+        monthlyFilteredExpenses.forEach(e => {
+            if (e.payer === user1Name) user1ExpenseTotal += e.amount; 
+            else if (e.payer === user2Name) user2ExpenseTotal += e.amount;
+            expenseCategories[e.category] = (expenseCategories[e.category] || 0) + e.amount;
+        });
+        
+        return { 
+            user1Total: user1ExpenseTotal, 
+            user2Total: user2ExpenseTotal,
+            categories: expenseCategories,
+            totalExpense: user1ExpenseTotal + user2ExpenseTotal
+        };
+    }, [monthlyFilteredExpenses, user1Name, user2Name]);
+
+    const settlement = useMemo(() => { 
+        const totalSpent = totals.user1Total + totals.user2Total; 
+        const fairShare = totalSpent / 2; 
+        const diffUser1 = totals.user1Total - fairShare;
+        
+        if (totalSpent === 0) return { message: "まだ支出がありません。", amount: 0, from: "", to: ""};
+        if (Math.abs(diffUser1) < 0.01) return { message: "負担額は均等です。", amount: 0, from: "", to: ""}; 
+        
+        return diffUser1 > 0 
+            ? { message: `${user2Name}が${user1Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`, amount: Math.abs(diffUser1), from: user2Name, to: user1Name }
+            : { message: `${user1Name}が${user2Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`, amount: Math.abs(diffUser1), from: user1Name, to: user2Name };
+    }, [totals, user1Name, user2Name]);
+
+    const pieData = useMemo(() => 
+        Object.entries(totals.categories)
+            .map(([name, value]) => ({ name, value }))
+            .filter(e => e.value > 0), 
+    [totals.categories]);
+
+    const budgetComparison = useMemo(() => {
+        const monthKey = formatMonthYear(currentMonth);
+        const currentMonthBudgets = monthlyBudgets[monthKey] || {};
+        const comparison = {};
+        let totalBudget = 0;
+        let totalSpent = totals.user1Total + totals.user2Total;
+
+        CATEGORIES.forEach(category => {
+            const budget = currentMonthBudgets[category] || 0;
+            const spent = totals.categories[category] || 0;
+            const remaining = budget - spent;
+            const percentage = budget > 0 ? (spent / budget) * 100 : 0;
+            
+            comparison[category] = {
+                budget,
+                spent,
+                remaining,
+                percentage,
+                isOverBudget: spent > budget && budget > 0
+            };
+            totalBudget += budget;
+        });
+
+        return {
+            categories: comparison,
+            totalBudget,
+            totalSpent,
+            totalRemaining: totalBudget - totalSpent,
+            overallPercentage: totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
+        };
+    }, [monthlyBudgets, currentMonth, totals]);
+
+    // --- 共有機能の処理 ---
+    const createGroup = async (groupName) => {
+        if (!currentUser) return;
+        
+        try {
+            const groupsPath = getGroupsCollectionPath();
+            const userGroupsPath = getUserGroupsCollectionPath();
+            if (!groupsPath || !userGroupsPath) return;
+            
+            const groupData = {
+                name: groupName,
+                createdBy: currentUser.uid,
+                createdAt: Timestamp.fromDate(new Date()),
+                members: [currentUser.uid],
+                memberEmails: [currentUser.email]
+            };
+            
+            const groupRef = await addDoc(collection(db, groupsPath), groupData);
+            
+            // ユーザーのグループ一覧に追加
+            await setDoc(doc(db, userGroupsPath, groupRef.id), {
+                groupId: groupRef.id,
+                groupName: groupName,
+                role: 'owner',
+                joinedAt: Timestamp.fromDate(new Date())
+            });
+            
+            setCurrentGroup({ id: groupRef.id, name: groupName, role: 'owner' });
+            alert('グループが作成されました！');
+        } catch (error) {
+            console.error('グループ作成エラー:', error);
+            alert('グループの作成に失敗しました。');
+        }
+    };
+
+    const inviteUserToGroup = async (email) => {
+        if (!currentUser || !currentGroup) return;
+        
+        try {
+            const invitationsPath = getInvitationsCollectionPath();
+            if (!invitationsPath) return;
+            
+            const invitationData = {
+                groupId: currentGroup.id,
+                groupName: currentGroup.name,
+                inviterEmail: currentUser.email,
+                inviterUid: currentUser.uid,
+                inviteeEmail: email,
+                status: 'pending',
+                createdAt: Timestamp.fromDate(new Date())
+            };
+            
+            await addDoc(collection(db, invitationsPath), invitationData);
+            alert(`${email} に招待を送信しました。`);
+        } catch (error) {
+            console.error('招待送信エラー:', error);
+            alert('招待の送信に失敗しました。');
+        }
+    };
+
+    const respondToInvitation = async (invitationId, accept) => {
+        if (!currentUser) return;
+        
+        try {
+            const invitationsPath = getInvitationsCollectionPath();
+            const userGroupsPath = getUserGroupsCollectionPath();
+            if (!invitationsPath || !userGroupsPath) return;
+            
+            const invitationRef = doc(db, invitationsPath, invitationId);
+            
+            if (accept) {
+                const invitation = invitations.find(inv => inv.id === invitationId);
+                if (!invitation) return;
+                
+                // グループに参加
+                await setDoc(doc(db, userGroupsPath, invitation.groupId), {
+                    groupId: invitation.groupId,
+                    groupName: invitation.groupName,
+                    role: 'member',
+                    joinedAt: Timestamp.fromDate(new Date())
+                });
+                
+                // TODO: グループのメンバー一覧を更新する処理
+                
+                await setDoc(invitationRef, { status: 'accepted' }, { merge: true });
+                alert('グループに参加しました！');
+            } else {
+                await setDoc(invitationRef, { status: 'declined' }, { merge: true });
+                alert('招待を辞退しました。');
+            }
+        } catch (error) {
+            console.error('招待応答エラー:', error);
+            alert('招待の応答に失敗しました。');
+        }
+    };
+
+    // --- ログアウト処理 ---
+    const handleLogout = async () => {
+        try {
+            await logout();
+        } catch (error) {
+            console.error('ログアウトエラー:', error);
+        }
+    };
+
+    // Firebase未設定時のデモモード表示
+    if (!isFirebaseAvailable) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-slate-100">
+                <div className="max-w-2xl text-center p-6">
+                    <div className="text-3xl font-bold text-sky-700 mb-4">🏠 家計簿アプリ（デモモード）</div>
+                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-6">
+                        <div className="font-semibold mb-2">⚠️ Firebase設定が見つかりません</div>
+                        <p className="text-sm">
+                            現在デモモードで表示されています。完全な機能を利用するには、管理者がFirebaseの環境変数を設定する必要があります。
+                        </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
+                        <h3 className="text-xl font-semibold text-slate-700 mb-4">📊 主な機能</h3>
+                        <ul className="text-left text-slate-600 space-y-2">
+                            <li>• 💰 支出の記録と管理</li>
+                            <li>• 🎯 カテゴリ別予算設定</li>
+                            <li>• 📈 グラフによるデータ可視化</li>
+                            <li>• 👥 二人での家計共有</li>
+                            <li>• ⚖️ 自動精算計算</li>
+                            <li>• 💾 データのバックアップ機能</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // 早期リターンのロジック（条件付きレンダリング）
+
+    // 認証されていない場合（このコンポーネントはPrivateRouteで保護されているので通常は到達しない）
+    if (!currentUser) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-slate-100">
+                <div className="text-xl font-semibold">認証が必要です</div>
+            </div>
+        );
+    }
 
     // --- CRUD関数 (支出データ) ---
     const handleAddOrUpdateExpense = async (expenseFormData) => {
@@ -342,83 +601,6 @@ function Home() {
             return newMonth;
         });
     };
-    
-    // --- 計算ロジック (メモ化) ---
-    const monthlyFilteredExpenses = useMemo(() => {
-        const monthYearStr = formatMonthYear(currentMonth);
-        return expenses
-            .filter(expense => formatMonthYear(new Date(expense.date)) === monthYearStr)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
-    }, [expenses, currentMonth]);
-
-    const totals = useMemo(() => { 
-        let user1ExpenseTotal = 0;
-        let user2ExpenseTotal = 0; 
-        const expenseCategories = {};
-        monthlyFilteredExpenses.forEach(e => {
-            if (e.payer === user1Name) user1ExpenseTotal += e.amount; 
-            else if (e.payer === user2Name) user2ExpenseTotal += e.amount;
-            expenseCategories[e.category] = (expenseCategories[e.category] || 0) + e.amount;
-        });
-        
-        return { 
-            user1Total: user1ExpenseTotal, 
-            user2Total: user2ExpenseTotal,
-            categories: expenseCategories,
-            totalExpense: user1ExpenseTotal + user2ExpenseTotal
-        };
-    }, [monthlyFilteredExpenses, user1Name, user2Name]);
-
-    const settlement = useMemo(() => { 
-        const totalSpent = totals.user1Total + totals.user2Total; 
-        const fairShare = totalSpent / 2; 
-        const diffUser1 = totals.user1Total - fairShare;
-        
-        if (totalSpent === 0) return { message: "まだ支出がありません。", amount: 0, from: "", to: ""};
-        if (Math.abs(diffUser1) < 0.01) return { message: "負担額は均等です。", amount: 0, from: "", to: ""}; 
-        
-        return diffUser1 > 0 
-            ? { message: `${user2Name}が${user1Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`, amount: Math.abs(diffUser1), from: user2Name, to: user1Name }
-            : { message: `${user1Name}が${user2Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`, amount: Math.abs(diffUser1), from: user1Name, to: user2Name };
-    }, [totals, user1Name, user2Name]);
-
-    const pieData = useMemo(() => 
-        Object.entries(totals.categories)
-            .map(([name, value]) => ({ name, value }))
-            .filter(e => e.value > 0), 
-    [totals.categories]);
-
-    const budgetComparison = useMemo(() => {
-        const monthKey = formatMonthYear(currentMonth);
-        const currentMonthBudgets = monthlyBudgets[monthKey] || {};
-        const comparison = {};
-        let totalBudget = 0;
-        let totalSpent = totals.user1Total + totals.user2Total;
-
-        CATEGORIES.forEach(category => {
-            const budget = currentMonthBudgets[category] || 0;
-            const spent = totals.categories[category] || 0;
-            const remaining = budget - spent;
-            const percentage = budget > 0 ? (spent / budget) * 100 : 0;
-            
-            comparison[category] = {
-                budget,
-                spent,
-                remaining,
-                percentage,
-                isOverBudget: spent > budget && budget > 0
-            };
-            totalBudget += budget;
-        });
-
-        return {
-            categories: comparison,
-            totalBudget,
-            totalSpent,
-            totalRemaining: totalBudget - totalSpent,
-            overallPercentage: totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
-        };
-    }, [monthlyBudgets, currentMonth, totals]);
 
     // --- データのエクスポート・インポート ---
     const handleExportData = () => {
@@ -520,6 +702,34 @@ function Home() {
         reader.readAsText(file); 
     };
 
+    // Firebase未設定時のデモモード表示
+    if (!isFirebaseAvailable) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-slate-100">
+                <div className="max-w-2xl text-center p-6">
+                    <div className="text-3xl font-bold text-sky-700 mb-4">🏠 家計簿アプリ（デモモード）</div>
+                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-6">
+                        <div className="font-semibold mb-2">⚠️ Firebase設定が見つかりません</div>
+                        <p className="text-sm">
+                            現在デモモードで表示されています。完全な機能を利用するには、管理者がFirebaseの環境変数を設定する必要があります。
+                        </p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
+                        <h3 className="text-xl font-semibold text-slate-700 mb-4">📊 主な機能</h3>
+                        <ul className="text-left text-slate-600 space-y-2">
+                            <li>• 💰 支出の記録と管理</li>
+                            <li>• 🎯 カテゴリ別予算設定</li>
+                            <li>• 📈 グラフによるデータ可視化</li>
+                            <li>• 👥 二人での家計共有</li>
+                            <li>• ⚖️ 自動精算計算</li>
+                            <li>• 💾 データのバックアップ機能</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-slate-100 p-4 md:p-6 lg:p-8 font-sans">
             {/* ヘッダー */}
@@ -538,6 +748,23 @@ function Home() {
                     <div className="flex items-center space-x-2">
                         <div className="text-sm text-slate-600">
                             {currentUser.displayName || currentUser.email}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                            {currentGroup?.name || '個人家計簿'}
+                        </div>
+                        <div className="relative">
+                            <button 
+                                onClick={() => setShowSharingModal(true)} 
+                                className="p-2 text-slate-600 hover:text-green-600" 
+                                title="共有とグループ管理"
+                            >
+                                <Share size={28} />
+                            </button>
+                            {invitations.length > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                    {invitations.length}
+                                </span>
+                            )}
                         </div>
                         <button 
                             onClick={() => setShowSettingsModal(true)} 
@@ -628,6 +855,20 @@ function Home() {
                 />
             </div>
             
+            {/* 共有モーダル */}
+            {showSharingModal && (
+                <SharingModal
+                    isOpen={showSharingModal}
+                    onClose={() => setShowSharingModal(false)}
+                    currentGroup={currentGroup}
+                    invitations={invitations}
+                    onCreateGroup={createGroup}
+                    onInviteUser={inviteUserToGroup}
+                    onRespondToInvitation={respondToInvitation}
+                    currentUser={currentUser}
+                />
+            )}
+
             {/* 設定モーダル */}
             {showSettingsModal && (
                 <SettingsModal
@@ -718,6 +959,9 @@ function ExpenseFormModal({ onSubmitExpense, user1Name, user2Name, categories, e
     const [category, setCategory] = useState(categories[0]);
     const [date, setDate] = useState(formatDateToInput(new Date()));
     const [errorMessage, setErrorMessage] = useState('');
+    const [showCalculator, setShowCalculator] = useState(false);
+    const [calculatorDisplay, setCalculatorDisplay] = useState('0');
+    const [calculatorExpression, setCalculatorExpression] = useState('');
 
     useEffect(() => {
         if (expenseToEdit) {
@@ -733,7 +977,53 @@ function ExpenseFormModal({ onSubmitExpense, user1Name, user2Name, categories, e
             setCategory(categories[0]);
             setDate(formatDateToInput(new Date()));
         }
+        setCalculatorDisplay('0');
+        setCalculatorExpression('');
     }, [expenseToEdit, user1Name, categories]);
+
+    // 電卓機能
+    const handleCalculatorClick = (value) => {
+        if (value === 'C') {
+            setCalculatorDisplay('0');
+            setCalculatorExpression('');
+        } else if (value === '=') {
+            try {
+                // 簡易計算機の安全な実装
+                const expression = calculatorExpression || calculatorDisplay;
+                const sanitizedExpression = expression.replace(/[^0-9+\-*/.() ]/g, '');
+                const result = Function('"use strict"; return (' + sanitizedExpression + ')')();
+                const resultString = result.toString();
+                setCalculatorDisplay(resultString);
+                setCalculatorExpression('');
+                setAmount(resultString);
+            } catch {
+                setCalculatorDisplay('エラー');
+                setCalculatorExpression('');
+            }
+        } else if (['+', '-', '*', '/'].includes(value)) {
+            if (calculatorExpression && !isNaN(calculatorDisplay)) {
+                setCalculatorExpression(calculatorExpression + calculatorDisplay + value);
+                setCalculatorDisplay('0');
+            } else if (!calculatorExpression && calculatorDisplay !== '0') {
+                setCalculatorExpression(calculatorDisplay + value);
+                setCalculatorDisplay('0');
+            }
+        } else {
+            if (calculatorDisplay === '0' || calculatorDisplay === 'エラー') {
+                setCalculatorDisplay(value);
+            } else {
+                setCalculatorDisplay(calculatorDisplay + value);
+            }
+        }
+    };
+
+    const toggleCalculator = () => {
+        setShowCalculator(!showCalculator);
+        if (!showCalculator) {
+            setCalculatorDisplay(amount || '0');
+            setCalculatorExpression('');
+        }
+    };
 
     const handleSubmit = (e) => { 
         e.preventDefault();
@@ -794,15 +1084,80 @@ function ExpenseFormModal({ onSubmitExpense, user1Name, user2Name, categories, e
                     </div>
                     <div> 
                         <label htmlFor="modal-amount-form" className="block text-sm font-medium text-slate-700">金額 (円)</label> 
-                        <input 
-                            type="number" 
-                            id="modal-amount-form" 
-                            value={amount} 
-                            onChange={e => setAmount(e.target.value)} 
-                            placeholder="例: 3000" 
-                            required 
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                        /> 
+                        <div className="mt-1 relative">
+                            <input 
+                                type="number" 
+                                id="modal-amount-form" 
+                                value={amount} 
+                                onChange={e => setAmount(e.target.value)} 
+                                placeholder="例: 3000" 
+                                required 
+                                className="block w-full px-3 py-2 pr-10 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                            />
+                            <button
+                                type="button"
+                                onClick={toggleCalculator}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-sky-600"
+                                title="電卓を開く"
+                            >
+                                <Calculator size={16} />
+                            </button>
+                        </div>
+                        {showCalculator && (
+                            <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                                <div className="mb-2">
+                                    <div className="text-xs text-slate-600 mb-1">
+                                        {calculatorExpression && `${calculatorExpression}${calculatorDisplay}`}
+                                    </div>
+                                    <div className="text-right text-lg font-mono bg-white p-2 border rounded">
+                                        {calculatorDisplay}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-4 gap-1">
+                                    {[
+                                        'C', '/', '*', '←',
+                                        '7', '8', '9', '-',
+                                        '4', '5', '6', '+',
+                                        '1', '2', '3', '=',
+                                        '0', '.', '', ''
+                                    ].map((btn, idx) => {
+                                        if (btn === '') return <div key={idx}></div>;
+                                        if (btn === '←') {
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (calculatorDisplay.length > 1) {
+                                                            setCalculatorDisplay(calculatorDisplay.slice(0, -1));
+                                                        } else {
+                                                            setCalculatorDisplay('0');
+                                                        }
+                                                    }}
+                                                    className="p-2 text-xs bg-slate-200 hover:bg-slate-300 rounded"
+                                                >
+                                                    <Delete size={12} />
+                                                </button>
+                                            );
+                                        }
+                                        return (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => handleCalculatorClick(btn)}
+                                                className={`p-2 text-xs rounded ${
+                                                    btn === '=' ? 'bg-sky-500 hover:bg-sky-600 text-white row-span-2' :
+                                                    ['C', '/', '*', '-', '+'].includes(btn) ? 'bg-slate-300 hover:bg-slate-400' :
+                                                    'bg-white hover:bg-slate-100 border'
+                                                } ${btn === '0' ? 'col-span-2' : ''}`}
+                                            >
+                                                {btn}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div> 
@@ -922,6 +1277,217 @@ function SummarySection({ user1Name, user2Name, totals, settlement, budgetCompar
                 > 
                     <p className="text-md sm:text-lg font-semibold">{settlement.message}</p> 
                 </div> 
+            </div>
+        </div>
+    );
+}
+
+/**
+ * 共有モーダルコンポーネント
+ */
+function SharingModal({ 
+    isOpen, 
+    onClose, 
+    currentGroup, 
+    invitations, 
+    onCreateGroup, 
+    onInviteUser, 
+    onRespondToInvitation
+}) {
+    const [newGroupName, setNewGroupName] = useState('');
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [activeTab, setActiveTab] = useState('invitations');
+
+    if (!isOpen) return null;
+
+    const handleCreateGroup = () => {
+        if (!newGroupName.trim()) {
+            alert('グループ名を入力してください。');
+            return;
+        }
+        onCreateGroup(newGroupName);
+        setNewGroupName('');
+    };
+
+    const handleInviteUser = () => {
+        if (!inviteEmail.trim()) {
+            alert('メールアドレスを入力してください。');
+            return;
+        }
+        if (!currentGroup) {
+            alert('招待するにはまずグループを作成してください。');
+            return;
+        }
+        onInviteUser(inviteEmail);
+        setInviteEmail('');
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
+                <button 
+                    onClick={onClose} 
+                    className="absolute top-3 right-3 text-slate-500 hover:text-slate-700"
+                >
+                    <XCircle size={24} />
+                </button>
+                
+                <h3 className="text-2xl font-semibold mb-6 text-green-700 text-center flex items-center justify-center">
+                    <Share size={26} className="mr-3 text-green-600" /> 
+                    家計簿共有管理
+                </h3>
+
+                {/* タブナビゲーション */}
+                <div className="flex mb-6 border-b">
+                    <button
+                        onClick={() => setActiveTab('invitations')}
+                        className={`px-4 py-2 font-medium text-sm ${
+                            activeTab === 'invitations' 
+                                ? 'text-green-700 border-b-2 border-green-700' 
+                                : 'text-slate-600 hover:text-green-600'
+                        }`}
+                    >
+                        招待一覧 {invitations.length > 0 && `(${invitations.length})`}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('group')}
+                        className={`px-4 py-2 font-medium text-sm ${
+                            activeTab === 'group' 
+                                ? 'text-green-700 border-b-2 border-green-700' 
+                                : 'text-slate-600 hover:text-green-600'
+                        }`}
+                    >
+                        グループ管理
+                    </button>
+                </div>
+
+                {/* 招待一覧タブ */}
+                {activeTab === 'invitations' && (
+                    <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-slate-700 flex items-center">
+                            <Mail size={20} className="mr-2 text-green-600"/>
+                            受信した招待
+                        </h4>
+                        
+                        {invitations.length === 0 ? (
+                            <p className="text-slate-500 text-center py-4">
+                                現在、招待はありません。
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                {invitations.map(invitation => (
+                                    <div key={invitation.id} className="border border-slate-200 rounded-lg p-4">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <h5 className="font-semibold text-slate-700">
+                                                    {invitation.groupName}
+                                                </h5>
+                                                <p className="text-sm text-slate-600">
+                                                    {invitation.inviterEmail} からの招待
+                                                </p>
+                                                <p className="text-xs text-slate-500">
+                                                    {invitation.createdAt?.toDate().toLocaleDateString('ja-JP')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() => onRespondToInvitation(invitation.id, true)}
+                                                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md text-sm flex items-center justify-center"
+                                            >
+                                                <Check size={16} className="mr-1" />
+                                                承認
+                                            </button>
+                                            <button
+                                                onClick={() => onRespondToInvitation(invitation.id, false)}
+                                                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md text-sm flex items-center justify-center"
+                                            >
+                                                <X size={16} className="mr-1" />
+                                                辞退
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* グループ管理タブ */}
+                {activeTab === 'group' && (
+                    <div className="space-y-6">
+                        {/* 現在のグループ */}
+                        <div>
+                            <h4 className="text-lg font-semibold text-slate-700 mb-3 flex items-center">
+                                <Users size={20} className="mr-2 text-green-600"/>
+                                現在のグループ
+                            </h4>
+                            <div className="bg-slate-50 rounded-lg p-4">
+                                <div className="font-medium text-slate-700">
+                                    {currentGroup?.name || '個人家計簿'}
+                                </div>
+                                <div className="text-sm text-slate-600">
+                                    役割: {currentGroup?.role === 'owner' ? 'オーナー' : 'メンバー'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 新しいグループを作成 */}
+                        <div>
+                            <h4 className="text-lg font-semibold text-slate-700 mb-3">
+                                新しいグループを作成
+                            </h4>
+                            <div className="space-y-3">
+                                <input
+                                    type="text"
+                                    value={newGroupName}
+                                    onChange={(e) => setNewGroupName(e.target.value)}
+                                    placeholder="グループ名を入力"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                />
+                                <button
+                                    onClick={handleCreateGroup}
+                                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md flex items-center justify-center"
+                                >
+                                    <PlusCircle size={18} className="mr-2" />
+                                    グループを作成
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* メンバーを招待 */}
+                        {currentGroup && currentGroup.role === 'owner' && (
+                            <div>
+                                <h4 className="text-lg font-semibold text-slate-700 mb-3">
+                                    メンバーを招待
+                                </h4>
+                                <div className="space-y-3">
+                                    <input
+                                        type="email"
+                                        value={inviteEmail}
+                                        onChange={(e) => setInviteEmail(e.target.value)}
+                                        placeholder="招待するメールアドレス"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                    />
+                                    <button
+                                        onClick={handleInviteUser}
+                                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md flex items-center justify-center"
+                                    >
+                                        <UserPlus size={18} className="mr-2" />
+                                        招待を送信
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <button 
+                    onClick={onClose} 
+                    className="mt-6 w-full bg-slate-500 hover:bg-slate-600 text-white font-semibold py-2.5 px-4 rounded-md shadow-md transition duration-150 ease-in-out" 
+                >
+                    閉じる
+                </button>
             </div>
         </div>
     );
@@ -1054,7 +1620,7 @@ function SettingsModal({
 /**
  * 支出一覧を表示するテーブルコンポーネント
  */
-function ExpenseTable({ expenses, onDeleteExpense, onEditExpense, user1Name, user2Name }) { 
+function ExpenseTable({ expenses, onDeleteExpense, onEditExpense, user1Name }) { 
     if (expenses.length === 0) { 
         return ( 
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg"> 
@@ -1162,7 +1728,7 @@ function CategoryPieChart({ data }) {
                         cx="50%"
                         cy="45%"
                         labelLine={false}
-                        label={({ name, percent, value }) => `${name} (${(percent * 100).toFixed(0)}%)`} 
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} 
                         outerRadius={100}
                         fill="#8884d8"
                         dataKey="value"
@@ -1175,11 +1741,11 @@ function CategoryPieChart({ data }) {
                             /> 
                         ))} 
                     </Pie> 
-                    <Tooltip formatter={(value, name, props) => [`${value.toLocaleString()} 円`, name]} /> 
+                    <Tooltip formatter={(value, name) => [`${value.toLocaleString()} 円`, name]} /> 
                     <Legend 
                         wrapperStyle={{fontSize: "0.875rem", paddingTop: "10px" }}
-                        formatter={(value, entry) => ( 
-                            <span style={{ color: entry.color }}>{value}</span> 
+                        formatter={(value) => ( 
+                            <span>{value}</span> 
                         )}
                     /> 
                 </PieChart> 
