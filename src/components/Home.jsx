@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, AlertCircle, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut, Calculator, Delete, UserPlus, Mail, Check, X, Share } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut, Calculator as CalculatorIcon } from 'lucide-react';
 
 // Firebaseのインポート
 import { 
@@ -10,11 +10,8 @@ import {
     setDoc, 
     deleteDoc, 
     onSnapshot, 
-    query, 
     Timestamp,
-    writeBatch,
-    getDocs,
-    where
+    writeBatch
 } from 'firebase/firestore';
 
 import { db, isFirebaseAvailable, appId } from '../firebase';
@@ -43,6 +40,165 @@ const formatDateToInput = (dateStringOrDate) => {
     return `${y}-${m}-${d}`;
 };
 
+// --- 電卓コンポーネント ---
+const Calculator = ({ onResult, onClose }) => {
+    const [display, setDisplay] = useState('0');
+    const [previousValue, setPreviousValue] = useState(null);
+    const [operation, setOperation] = useState(null);
+    const [waitingForNewValue, setWaitingForNewValue] = useState(false);
+
+    const handleNumber = (num) => {
+        if (waitingForNewValue) {
+            setDisplay(String(num));
+            setWaitingForNewValue(false);
+        } else {
+            setDisplay(display === '0' ? String(num) : display + num);
+        }
+    };
+
+    const handleDecimal = () => {
+        if (waitingForNewValue) {
+            setDisplay('0.');
+            setWaitingForNewValue(false);
+        } else if (!display.includes('.')) {
+            setDisplay(display + '.');
+        }
+    };
+
+    const handleOperation = (nextOperation) => {
+        const inputValue = parseFloat(display);
+
+        if (isNaN(inputValue)) return;
+
+        if (previousValue === null) {
+            setPreviousValue(inputValue);
+        } else if (operation && !waitingForNewValue) {
+            const currentValue = previousValue || 0;
+            const newValue = calculate(currentValue, inputValue, operation);
+
+            if (isNaN(newValue) || !isFinite(newValue)) {
+                setDisplay('エラー');
+                setPreviousValue(null);
+                setOperation(null);
+                setWaitingForNewValue(true);
+                return;
+            }
+
+            setDisplay(String(newValue));
+            setPreviousValue(newValue);
+        }
+
+        setWaitingForNewValue(true);
+        setOperation(nextOperation);
+    };
+
+    const calculate = (firstValue, secondValue, operation) => {
+        switch (operation) {
+            case '+':
+                return firstValue + secondValue;
+            case '-':
+                return firstValue - secondValue;
+            case '×':
+                return firstValue * secondValue;
+            case '÷':
+                return secondValue !== 0 ? firstValue / secondValue : NaN;
+            default:
+                return secondValue;
+        }
+    };
+
+    const handleEquals = () => {
+        const inputValue = parseFloat(display);
+        
+        if (isNaN(inputValue)) return;
+        
+        if (previousValue !== null && operation) {
+            const newValue = calculate(previousValue, inputValue, operation);
+            
+            if (isNaN(newValue) || !isFinite(newValue)) {
+                setDisplay('エラー');
+            } else {
+                setDisplay(String(newValue));
+            }
+            
+            setPreviousValue(null);
+            setOperation(null);
+            setWaitingForNewValue(true);
+        }
+    };
+
+    const handleClear = () => {
+        setDisplay('0');
+        setPreviousValue(null);
+        setOperation(null);
+        setWaitingForNewValue(false);
+    };
+
+    const handleUse = () => {
+        const value = parseFloat(display);
+        if (!isNaN(value) && value >= 0 && isFinite(value)) {
+            onResult(Math.round(value));
+            onClose();
+        } else {
+            alert('有効な数値を入力してください。');
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-80">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">電卓</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                        <XCircle size={20} />
+                    </button>
+                </div>
+                
+                <div className="bg-gray-100 p-4 rounded mb-4 text-right text-2xl font-mono">
+                    {display}
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                    <button onClick={handleClear} className="bg-red-500 text-white p-3 rounded hover:bg-red-600 col-span-2">
+                        C
+                    </button>
+                    <button onClick={() => handleOperation('÷')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">
+                        ÷
+                    </button>
+                    <button onClick={() => handleOperation('×')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">
+                        ×
+                    </button>
+
+                    <button onClick={() => handleNumber(7)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">7</button>
+                    <button onClick={() => handleNumber(8)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">8</button>
+                    <button onClick={() => handleNumber(9)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">9</button>
+                    <button onClick={() => handleOperation('-')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">-</button>
+
+                    <button onClick={() => handleNumber(4)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">4</button>
+                    <button onClick={() => handleNumber(5)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">5</button>
+                    <button onClick={() => handleNumber(6)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">6</button>
+                    <button onClick={() => handleOperation('+')} className="bg-blue-500 text-white p-3 rounded hover:bg-blue-600">+</button>
+
+                    <button onClick={() => handleNumber(1)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">1</button>
+                    <button onClick={() => handleNumber(2)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">2</button>
+                    <button onClick={() => handleNumber(3)} className="bg-gray-200 p-3 rounded hover:bg-gray-300">3</button>
+                    <button onClick={handleEquals} className="bg-green-500 text-white p-3 rounded hover:bg-green-600 row-span-2">=</button>
+
+                    <button onClick={() => handleNumber(0)} className="bg-gray-200 p-3 rounded hover:bg-gray-300 col-span-2">0</button>
+                    <button onClick={handleDecimal} className="bg-gray-200 p-3 rounded hover:bg-gray-300">.</button>
+                </div>
+
+                <button 
+                    onClick={handleUse}
+                    className="w-full mt-4 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
+                >
+                    この値を使用 ({display})
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // --- メインホームコンポーネント ---
 function Home() {
     const { currentUser, logout } = useAuth();
@@ -65,203 +221,217 @@ function Home() {
 
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
-    
-    // 共有機能関連のstate
-    const [showSharingModal, setShowSharingModal] = useState(false);
-    const [currentGroup, setCurrentGroup] = useState(null);
-    const [invitations, setInvitations] = useState([]);
+
+    // 電卓関連のstate
+    const [showCalculator, setShowCalculator] = useState(false);
+    const [calculatorTarget, setCalculatorTarget] = useState(null);
 
     // --- Firestoreコレクションパスの定義 ---
     const getExpensesCollectionPath = useCallback(() => {
         if (!currentUser) return null;
-        const groupId = currentGroup?.id || `personal_${currentUser.uid}`;
-        return `artifacts/${appId}/groups/${groupId}/expenses`;
-    }, [currentUser, currentGroup]);
+        return `artifacts/${appId}/users/${currentUser.uid}/expenses`;
+    }, [currentUser]);
 
     const getUserSettingsDocPath = useCallback(() => {
         if (!currentUser) return null;
-        const groupId = currentGroup?.id || `personal_${currentUser.uid}`;
-        return `artifacts/${appId}/groups/${groupId}/settings/userNames`;
-    }, [currentUser, currentGroup]);
+        return `artifacts/${appId}/users/${currentUser.uid}/settings/userNames`;
+    }, [currentUser]);
 
     const getBudgetDocPath = useCallback(() => {
         if (!currentUser) return null;
-        const groupId = currentGroup?.id || `personal_${currentUser.uid}`;
-        return `artifacts/${appId}/groups/${groupId}/settings/budgets`;
-    }, [currentUser, currentGroup]);
-
-    // 共有機能のパス
-    const getGroupsCollectionPath = useCallback(() => {
-        if (!currentUser) return null;
-        return `artifacts/${appId}/groups`;
+        return `artifacts/${appId}/users/${currentUser.uid}/settings/budgets`;
     }, [currentUser]);
 
-    const getInvitationsCollectionPath = useCallback(() => {
-        if (!currentUser) return null;
-        return `artifacts/${appId}/invitations`;
-    }, [currentUser]);
+    // --- ログアウト処理 ---
+    const handleLogout = async () => {
+        try {
+            await logout();
+        } catch (error) {
+            console.error('ログアウトエラー:', error);
+        }
+    };
 
-    const getUserGroupsCollectionPath = useCallback(() => {
-        if (!currentUser) return null;
-        return `artifacts/${appId}/userGroups/${currentUser.uid}/groups`;
-    }, [currentUser]);
-
-    // --- Effect Hooks (条件付き呼び出しを回避するため全て先頭に配置) ---
-    
-    // ユーザーのグループ一覧を読み込み
-    useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
-
-        const userGroupsPath = getUserGroupsCollectionPath();
-        if (!userGroupsPath) return;
-
-        const q = query(collection(db, userGroupsPath));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const groups = [];
-            querySnapshot.forEach((doc) => {
-                groups.push({ id: doc.id, ...doc.data() });
-            });
-            
-            if (groups.length > 0 && !currentGroup) {
-                // デフォルトで最初のグループを選択
-                setCurrentGroup(groups[0]);
-            } else if (groups.length === 0 && !currentGroup) {
-                // 個人用のデフォルトグループを設定
-                setCurrentGroup({ 
-                    id: `personal_${currentUser.uid}`, 
-                    name: '個人家計簿', 
-                    role: 'owner' 
-                });
-            }
-        }, (error) => {
-            console.error("ユーザーグループの読み込みエラー:", error);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser, getUserGroupsCollectionPath, currentGroup]);
-
-    // 招待一覧を読み込み
-    useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
-
-        const invitationsPath = getInvitationsCollectionPath();
-        if (!invitationsPath) return;
-
-        const q = query(
-            collection(db, invitationsPath), 
-            where('inviteeEmail', '==', currentUser.email),
-            where('status', '==', 'pending')
-        );
-        
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const invites = [];
-            querySnapshot.forEach((doc) => {
-                invites.push({ id: doc.id, ...doc.data() });
-            });
-            setInvitations(invites);
-        }, (error) => {
-            console.error("招待一覧の読み込みエラー:", error);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser, getInvitationsCollectionPath]);
-
+    // --- Effectフック ---
     // ユーザー設定 (名前) の読み込み (Firestoreから)
     useEffect(() => {
         if (!isFirebaseAvailable || !currentUser) return;
 
-        const settingsPath = getUserSettingsDocPath();
-        if (!settingsPath) return;
+        const userSettingsPath = getUserSettingsDocPath();
+        if (!userSettingsPath) return;
 
-        const docRef = doc(db, settingsPath);
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
+        const unsubscribe = onSnapshot(doc(db, userSettingsPath), (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
                 setUser1Name(data.user1Name || DEFAULT_USER1_NAME);
                 setUser2Name(data.user2Name || DEFAULT_USER2_NAME);
-                console.log("Firestore: User names loaded.", data);
-            } else {
-                setUser1Name(DEFAULT_USER1_NAME);
-                setUser2Name(DEFAULT_USER2_NAME);
-                const defaultData = {
-                    user1Name: DEFAULT_USER1_NAME,
-                    user2Name: DEFAULT_USER2_NAME,
-                    uid: currentUser.uid,
-                    createdAt: Timestamp.fromDate(new Date())
-                };
-                setDoc(docRef, defaultData)
-                    .then(() => console.log("Firestore: Default user names created."))
-                    .catch(e => console.error("Firestore: Error creating default user names:", e));
             }
         }, (error) => {
-            console.error("Firestore: Error listening to user names:", error);
+            console.error("ユーザー設定の読み込みエラー:", error);
         });
+
         return () => unsubscribe();
     }, [currentUser, getUserSettingsDocPath]);
 
-    // 支出データの読み込み (Firestoreから、リアルタイム更新)
+    // 支出データの読み込み (Firestoreから)
     useEffect(() => {
         if (!isFirebaseAvailable || !currentUser) return;
 
         const expensesPath = getExpensesCollectionPath();
         if (!expensesPath) return;
 
-        const q = query(collection(db, expensesPath)); 
-
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const fetchedExpenses = [];
+        const unsubscribe = onSnapshot(collection(db, expensesPath), (querySnapshot) => {
+            const expenseList = [];
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
-                fetchedExpenses.push({
+                expenseList.push({
                     id: doc.id,
                     ...data,
-                    date: data.date instanceof Timestamp ? data.date.toDate().toISOString() : data.date,
+                    date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : data.date
                 });
             });
-            fetchedExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            setExpenses(fetchedExpenses);
-            console.log("Firestore: Expenses loaded/updated. Count:", fetchedExpenses.length);
+            setExpenses(expenseList);
         }, (error) => {
-            console.error("Firestore: Error listening to expenses:", error);
+            console.error("支出データの読み込みエラー:", error);
         });
 
         return () => unsubscribe();
     }, [currentUser, getExpensesCollectionPath]);
 
-    // 予算データの読み込み (Firestoreから、リアルタイム更新)
+    // 予算データの読み込み (Firestoreから)
     useEffect(() => {
         if (!isFirebaseAvailable || !currentUser) return;
 
         const budgetPath = getBudgetDocPath();
         if (!budgetPath) return;
 
-        const docRef = doc(db, budgetPath);
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            try {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    if (data && typeof data === 'object') {
-                        setMonthlyBudgets(data);
-                        console.log("Firestore: Budget data loaded.", data);
-                    } else {
-                        console.warn("Invalid budget data structure:", data);
-                        setMonthlyBudgets({});
-                    }
-                } else {
-                    setMonthlyBudgets({});
-                    console.log("Firestore: No budget data found, initializing empty object.");
-                }
-            } catch (error) {
-                console.error("Error processing budget data:", error);
-                setMonthlyBudgets({});
+        const unsubscribe = onSnapshot(doc(db, budgetPath), (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
+                setMonthlyBudgets(data.monthlyBudgets || {});
             }
         }, (error) => {
-            console.error("Firestore: Error listening to budget data:", error);
-            setMonthlyBudgets({});
+            console.error("予算データの読み込みエラー:", error);
         });
+
         return () => unsubscribe();
     }, [currentUser, getBudgetDocPath]);
 
+    // --- CRUD関数 (支出データ) ---
+    const handleAddOrUpdateExpense = async (expenseFormData) => {
+        if (!currentUser) {
+            alert('ユーザーが認証されていません。');
+            return;
+        }
+
+        try {
+            const expensesPath = getExpensesCollectionPath();
+            if (!expensesPath) {
+                alert('データパスが取得できません。');
+                return;
+            }
+
+            const expenseData = {
+                ...expenseFormData,
+                uid: currentUser.uid,
+                createdAt: editingExpense ? editingExpense.createdAt : Timestamp.fromDate(new Date()),
+                updatedAt: Timestamp.fromDate(new Date())
+            };
+
+            if (editingExpense) {
+                await setDoc(doc(db, expensesPath, editingExpense.id), expenseData);
+            } else {
+                await addDoc(collection(db, expensesPath), expenseData);
+            }
+
+            setShowExpenseForm(false);
+            setEditingExpense(null);
+        } catch (error) {
+            console.error('支出データの保存エラー:', error);
+            alert('支出データの保存に失敗しました。');
+        }
+    };
+
+    const handleDeleteExpense = async (expenseId) => {
+        if (!confirm('この支出データを削除しますか？')) return;
+
+        try {
+            const expensesPath = getExpensesCollectionPath();
+            if (!expensesPath) {
+                alert('データパスが取得できません。');
+                return;
+            }
+
+            await deleteDoc(doc(db, expensesPath, expenseId));
+        } catch (error) {
+            console.error('支出データの削除エラー:', error);
+            alert('支出データの削除に失敗しました。');
+        }
+    };
+
+    // --- CRUD関数 (ユーザー設定) ---
+    const handleSaveUserNames = async (newUser1Name, newUser2Name) => {
+        if (!currentUser) {
+            alert('ユーザーが認証されていません。');
+            return;
+        }
+
+        try {
+            const userSettingsPath = getUserSettingsDocPath();
+            if (!userSettingsPath) {
+                alert('データパスが取得できません。');
+                return;
+            }
+
+            await setDoc(doc(db, userSettingsPath), {
+                user1Name: newUser1Name || DEFAULT_USER1_NAME,
+                user2Name: newUser2Name || DEFAULT_USER2_NAME,
+                uid: currentUser.uid,
+                updatedAt: Timestamp.fromDate(new Date())
+            });
+
+            alert('ユーザー名が保存されました。');
+        } catch (error) {
+            console.error('ユーザー設定の保存エラー:', error);
+            alert('ユーザー設定の保存に失敗しました。');
+        }
+    };
+
+    // --- CRUD関数 (予算データ) ---
+    const handleSaveBudgets = async (newMonthlyBudgets) => {
+        if (!currentUser) {
+            alert('ユーザーが認証されていません。');
+            return;
+        }
+
+        try {
+            const budgetPath = getBudgetDocPath();
+            if (!budgetPath) {
+                alert('データパスが取得できません。');
+                return;
+            }
+
+            await setDoc(doc(db, budgetPath), {
+                monthlyBudgets: newMonthlyBudgets,
+                uid: currentUser.uid,
+                updatedAt: Timestamp.fromDate(new Date())
+            });
+
+            alert('予算が保存されました。');
+        } catch (error) {
+            console.error('予算データの保存エラー:', error);
+            alert('予算データの保存に失敗しました。');
+        }
+    };
+
+    // --- 月移動 ---
+    const navigateMonth = (direction) => {
+        setCurrentMonth(prevMonth => {
+            const newMonth = new Date(prevMonth);
+            newMonth.setMonth(newMonth.getMonth() + direction);
+            return newMonth;
+        });
+    };
+    
     // --- 計算ロジック (メモ化) ---
     const monthlyFilteredExpenses = useMemo(() => {
         const monthYearStr = formatMonthYear(currentMonth);
@@ -339,303 +509,28 @@ function Home() {
         };
     }, [monthlyBudgets, currentMonth, totals]);
 
-    // --- 共有機能の処理 ---
-    const createGroup = async (groupName) => {
-        if (!currentUser) return;
-        
-        try {
-            const groupsPath = getGroupsCollectionPath();
-            const userGroupsPath = getUserGroupsCollectionPath();
-            if (!groupsPath || !userGroupsPath) return;
-            
-            const groupData = {
-                name: groupName,
-                createdBy: currentUser.uid,
-                createdAt: Timestamp.fromDate(new Date()),
-                members: [currentUser.uid],
-                memberEmails: [currentUser.email]
-            };
-            
-            const groupRef = await addDoc(collection(db, groupsPath), groupData);
-            
-            // ユーザーのグループ一覧に追加
-            await setDoc(doc(db, userGroupsPath, groupRef.id), {
-                groupId: groupRef.id,
-                groupName: groupName,
-                role: 'owner',
-                joinedAt: Timestamp.fromDate(new Date())
-            });
-            
-            setCurrentGroup({ id: groupRef.id, name: groupName, role: 'owner' });
-            alert('グループが作成されました！');
-        } catch (error) {
-            console.error('グループ作成エラー:', error);
-            alert('グループの作成に失敗しました。');
-        }
-    };
-
-    const inviteUserToGroup = async (email) => {
-        if (!currentUser || !currentGroup) return;
-        
-        try {
-            const invitationsPath = getInvitationsCollectionPath();
-            if (!invitationsPath) return;
-            
-            const invitationData = {
-                groupId: currentGroup.id,
-                groupName: currentGroup.name,
-                inviterEmail: currentUser.email,
-                inviterUid: currentUser.uid,
-                inviteeEmail: email,
-                status: 'pending',
-                createdAt: Timestamp.fromDate(new Date())
-            };
-            
-            await addDoc(collection(db, invitationsPath), invitationData);
-            alert(`${email} に招待を送信しました。`);
-        } catch (error) {
-            console.error('招待送信エラー:', error);
-            alert('招待の送信に失敗しました。');
-        }
-    };
-
-    const respondToInvitation = async (invitationId, accept) => {
-        if (!currentUser) return;
-        
-        try {
-            const invitationsPath = getInvitationsCollectionPath();
-            const userGroupsPath = getUserGroupsCollectionPath();
-            if (!invitationsPath || !userGroupsPath) return;
-            
-            const invitationRef = doc(db, invitationsPath, invitationId);
-            
-            if (accept) {
-                const invitation = invitations.find(inv => inv.id === invitationId);
-                if (!invitation) return;
-                
-                // グループに参加
-                await setDoc(doc(db, userGroupsPath, invitation.groupId), {
-                    groupId: invitation.groupId,
-                    groupName: invitation.groupName,
-                    role: 'member',
-                    joinedAt: Timestamp.fromDate(new Date())
-                });
-                
-                // TODO: グループのメンバー一覧を更新する処理
-                
-                await setDoc(invitationRef, { status: 'accepted' }, { merge: true });
-                alert('グループに参加しました！');
-            } else {
-                await setDoc(invitationRef, { status: 'declined' }, { merge: true });
-                alert('招待を辞退しました。');
-            }
-        } catch (error) {
-            console.error('招待応答エラー:', error);
-            alert('招待の応答に失敗しました。');
-        }
-    };
-
-    // --- ログアウト処理 ---
-    const handleLogout = async () => {
-        try {
-            await logout();
-        } catch (error) {
-            console.error('ログアウトエラー:', error);
-        }
-    };
-
-    // Firebase未設定時のデモモード表示
-    if (!isFirebaseAvailable) {
-        return (
-            <div className="flex justify-center items-center h-screen bg-slate-100">
-                <div className="max-w-2xl text-center p-6">
-                    <div className="text-3xl font-bold text-sky-700 mb-4">🏠 家計簿アプリ（デモモード）</div>
-                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-6">
-                        <div className="font-semibold mb-2">⚠️ Firebase設定が見つかりません</div>
-                        <p className="text-sm">
-                            現在デモモードで表示されています。完全な機能を利用するには、管理者がFirebaseの環境変数を設定する必要があります。
-                        </p>
-                    </div>
-                    <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
-                        <h3 className="text-xl font-semibold text-slate-700 mb-4">📊 主な機能</h3>
-                        <ul className="text-left text-slate-600 space-y-2">
-                            <li>• 💰 支出の記録と管理</li>
-                            <li>• 🎯 カテゴリ別予算設定</li>
-                            <li>• 📈 グラフによるデータ可視化</li>
-                            <li>• 👥 二人での家計共有</li>
-                            <li>• ⚖️ 自動精算計算</li>
-                            <li>• 💾 データのバックアップ機能</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // 早期リターンのロジック（条件付きレンダリング）
-
-    // 認証されていない場合（このコンポーネントはPrivateRouteで保護されているので通常は到達しない）
-    if (!currentUser) {
-        return (
-            <div className="flex justify-center items-center h-screen bg-slate-100">
-                <div className="text-xl font-semibold">認証が必要です</div>
-            </div>
-        );
-    }
-
-    // --- CRUD関数 (支出データ) ---
-    const handleAddOrUpdateExpense = async (expenseFormData) => {
-        if (!currentUser) {
-            alert("ユーザー認証が行われていません。");
-            return;
-        }
-        const expensesPath = getExpensesCollectionPath();
-        if (!expensesPath) return;
-
-        const dataToSave = {
-            ...expenseFormData,
-            amount: parseFloat(expenseFormData.amount),
-            date: Timestamp.fromDate(new Date(expenseFormData.date)),
-            uid: currentUser.uid 
-        };
-
-        try {
-            if (editingExpense) { 
-                const docRef = doc(db, expensesPath, editingExpense.id);
-                await setDoc(docRef, dataToSave, { merge: true });
-                console.log("Firestore: Expense updated with ID:", editingExpense.id);
-            } else { 
-                const docRef = await addDoc(collection(db, expensesPath), dataToSave);
-                console.log("Firestore: Expense added with ID:", docRef.id);
-            }
-            setShowExpenseForm(false);
-            setEditingExpense(null);
-        } catch (error) {
-            console.error("Firestore: Error saving expense:", error);
-            alert("支出の保存に失敗しました。");
-        }
-    };
-    
-    const handleDeleteExpense = async (id) => {
-        if (!currentUser || !window.confirm("この支出を削除してもよろしいですか？")) return;
-        
-        const expensesPath = getExpensesCollectionPath();
-        if (!expensesPath) return;
-
-        try {
-            await deleteDoc(doc(db, expensesPath, id));
-            console.log("Firestore: Expense deleted with ID:", id);
-        } catch (error) {
-            console.error("Firestore: Error deleting expense:", error);
-            alert("支出の削除に失敗しました。");
-        }
-    };
-    
-    const handleEditExpenseClick = (expense) => { 
-        setEditingExpense(expense); 
-        setShowExpenseForm(true);
-    };
-
-    // --- ユーザー名保存処理 ---
-    const handleSaveUserNames = async (newName1, newName2) => {
-        if (!currentUser) {
-            alert("ユーザー認証が行われていません。");
-            return;
-        }
-        const settingsPath = getUserSettingsDocPath();
-        if (!settingsPath) return;
-
-        try {
-            const dataToSave = {
-                user1Name: newName1,
-                user2Name: newName2,
-                uid: currentUser.uid,
-                updatedAt: Timestamp.fromDate(new Date())
-            };
-            
-            await setDoc(doc(db, settingsPath), dataToSave);
-            alert("ユーザー名が保存されました。");
-            console.log("Firestore: User names saved.");
-        } catch (error) {
-            console.error("Firestore: Error saving user names:", error);
-            alert("ユーザー名の保存に失敗しました。");
-        }
-    };
-
-    // --- 予算保存処理 ---
-    const handleSaveBudgets = async (budgetData) => {
-        if (!currentUser) {
-            alert("ユーザー認証が行われていません。");
-            return;
-        }
-        
-        const budgetPath = getBudgetDocPath();
-        if (!budgetPath) return;
-
-        try {
-            const dataToSave = {
-                ...budgetData,
-                uid: currentUser.uid,
-                updatedAt: Timestamp.fromDate(new Date()),
-                lastModified: new Date().toISOString()
-            };
-            
-            const docRef = doc(db, budgetPath);
-            await setDoc(docRef, dataToSave, { merge: true });
-            console.log("Budget data successfully saved to Firestore");
-            
-            alert("予算が保存されました。");
-            setShowBudgetModal(false);
-        } catch (error) {
-            console.error("Firestore: Error saving budget:", error);
-            alert(`予算の保存に失敗しました: ${error.message}`);
-        }
-    };
-
-    // --- 月ナビゲーション ---
-    const navigateMonth = (direction) => {
-        setCurrentMonth(prevMonth => {
-            const newMonth = new Date(prevMonth); 
-            newMonth.setDate(1); 
-            newMonth.setMonth(prevMonth.getMonth() + direction); 
-            return newMonth;
-        });
-    };
-
     // --- データのエクスポート・インポート ---
     const handleExportData = () => {
-        try {
-            const dataToExport = { 
-                expenses: expenses.map(e => ({...e, date: new Date(e.date).toISOString()})),
-                monthlyBudgets,
-                user1Name, 
-                user2Name, 
-                categories: CATEGORIES,
-                version: "kakeibo-app-firestore-v3.0"
-            };
-            const jsonString = JSON.stringify(dataToExport, null, 2); 
-            const blob = new Blob([jsonString], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-"); 
-            link.download = `kakeibo_backup_${timestamp}.json`;
-            document.body.appendChild(link);
-            link.click(); 
-            document.body.removeChild(link); 
-            URL.revokeObjectURL(url); 
-            alert("データがエクスポートされました！");
-        } catch (error) {
-            console.error("データのエクスポートに失敗しました:", error);
-            alert("データのエクスポートに失敗しました。");
-        }
+        const dataToExport = {
+            expenses: expenses,
+            userNames: { user1Name, user2Name },
+            monthlyBudgets: monthlyBudgets,
+            exportDate: new Date().toISOString(),
+            version: "1.0"
+        };
+        
+        const dataStr = JSON.stringify(dataToExport, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = `家計簿データ_${new Date().toISOString().split('T')[0]}.json`;
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
     };
 
     const handleImportData = async (event) => {
-        if (!currentUser) {
-            alert("インポートする前にログインしてください。");
-            return;
-        }
         const file = event.target.files[0];
         if (!file) return;
 
@@ -643,1360 +538,834 @@ function Home() {
         reader.onload = async (e) => {
             try {
                 const importedData = JSON.parse(e.target.result);
-                if (!importedData.expenses || !importedData.user1Name || !importedData.user2Name) {
-                    throw new Error("インポートされたファイル形式が正しくありません。");
-                }
-                if (!window.confirm("現在のFirestoreのデータをインポートしたデータで上書きしますか？この操作は元に戻せません。")) {
-                    if(fileInputRef.current) fileInputRef.current.value = ""; 
+                
+                if (!importedData.expenses || !Array.isArray(importedData.expenses)) {
+                    alert('無効なデータ形式です。');
                     return;
                 }
 
-                const expensesPath = getExpensesCollectionPath();
-                const settingsPath = getUserSettingsDocPath();
-                const budgetPath = getBudgetDocPath();
-                if (!expensesPath || !settingsPath || !budgetPath) {
-                    throw new Error("データパスの取得に失敗しました。");
+                const confirmImport = confirm(
+                    `${importedData.expenses.length}件の支出データをインポートしますか？\n` +
+                    '既存のデータに追加されます。'
+                );
+                
+                if (!confirmImport) return;
+
+                // Firestoreにデータを一括追加
+                if (isFirebaseAvailable && currentUser) {
+                    const expensesPath = getExpensesCollectionPath();
+                    if (expensesPath) {
+                        const batch = writeBatch(db);
+                        
+                        importedData.expenses.forEach(expense => {
+                            const newDocRef = doc(collection(db, expensesPath));
+                            batch.set(newDocRef, {
+                                ...expense,
+                                uid: currentUser.uid,
+                                createdAt: Timestamp.fromDate(new Date(expense.date)),
+                                updatedAt: Timestamp.fromDate(new Date())
+                            });
+                        });
+                        
+                        await batch.commit();
+                    }
                 }
 
-                const batch = writeBatch(db);
-                
-                const existingExpensesSnapshot = await getDocs(query(collection(db, expensesPath)));
-                existingExpensesSnapshot.forEach(doc => batch.delete(doc.ref));
-                
-                (importedData.expenses || []).forEach(expense => {
-                    const docRef = doc(collection(db, expensesPath));
-                    batch.set(docRef, {
-                        ...expense,
-                        amount: parseFloat(expense.amount),
-                        date: Timestamp.fromDate(new Date(expense.date)),
-                        uid: currentUser.uid
-                    });
-                });
+                // ユーザー名設定のインポート（任意）
+                if (importedData.userNames) {
+                    await handleSaveUserNames(
+                        importedData.userNames.user1Name,
+                        importedData.userNames.user2Name
+                    );
+                }
 
-                batch.set(doc(db, settingsPath), {
-                    user1Name: importedData.user1Name || DEFAULT_USER1_NAME,
-                    user2Name: importedData.user2Name || DEFAULT_USER2_NAME,
-                    uid: currentUser.uid,
-                    updatedAt: Timestamp.fromDate(new Date())
-                });
-
+                // 予算設定のインポート（任意）
                 if (importedData.monthlyBudgets) {
-                    batch.set(doc(db, budgetPath), {
-                        ...importedData.monthlyBudgets,
-                        uid: currentUser.uid,
-                        updatedAt: Timestamp.fromDate(new Date())
-                    });
+                    await handleSaveBudgets(importedData.monthlyBudgets);
                 }
-                
-                await batch.commit();
 
-                alert("データが正常にインポートされました！");
-                setShowSettingsModal(false); 
+                alert('データのインポートが完了しました。');
             } catch (error) {
-                console.error("データのインポートに失敗しました:", error);
-                alert(`データのインポートに失敗しました: ${error.message}`);
-            } finally {
-                if(fileInputRef.current) fileInputRef.current.value = ""; 
+                console.error('インポートエラー:', error);
+                alert('データのインポートに失敗しました。ファイル形式を確認してください。');
             }
         };
+        
         reader.readAsText(file); 
     };
 
-    // Firebase未設定時のデモモード表示
-    if (!isFirebaseAvailable) {
-        return (
-            <div className="flex justify-center items-center h-screen bg-slate-100">
-                <div className="max-w-2xl text-center p-6">
-                    <div className="text-3xl font-bold text-sky-700 mb-4">🏠 家計簿アプリ（デモモード）</div>
-                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-6">
-                        <div className="font-semibold mb-2">⚠️ Firebase設定が見つかりません</div>
-                        <p className="text-sm">
-                            現在デモモードで表示されています。完全な機能を利用するには、管理者がFirebaseの環境変数を設定する必要があります。
-                        </p>
-                    </div>
-                    <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
-                        <h3 className="text-xl font-semibold text-slate-700 mb-4">📊 主な機能</h3>
-                        <ul className="text-left text-slate-600 space-y-2">
-                            <li>• 💰 支出の記録と管理</li>
-                            <li>• 🎯 カテゴリ別予算設定</li>
-                            <li>• 📈 グラフによるデータ可視化</li>
-                            <li>• 👥 二人での家計共有</li>
-                            <li>• ⚖️ 自動精算計算</li>
-                            <li>• 💾 データのバックアップ機能</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // 電卓機能
+    const handleCalculatorResult = (result) => {
+        if (calculatorTarget) {
+            calculatorTarget.value = result;
+            calculatorTarget.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
+
+    const openCalculator = (inputElement) => {
+        setCalculatorTarget(inputElement);
+        setShowCalculator(true);
+    };
 
     return (
         <div className="min-h-screen bg-slate-100 p-4 md:p-6 lg:p-8 font-sans">
             {/* ヘッダー */}
-            <header className="mb-6">
-                <div className="flex justify-between items-center mb-4">
-                    <button 
-                        onClick={() => setShowBudgetModal(true)} 
-                        className="p-2 text-slate-600 hover:text-emerald-600" 
-                        title="予算設定"
-                    >
-                        <Target size={28} />
-                    </button>
-                    <h1 className="text-3xl md:text-4xl font-bold text-sky-700 text-center flex-grow">
-                        家計簿アプリ
-                    </h1>
-                    <div className="flex items-center space-x-2">
-                        <div className="text-sm text-slate-600">
-                            {currentUser.displayName || currentUser.email}
+            <header className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <Wallet className="text-sky-700" size={28} />
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800">二人暮らしの家計簿</h1>
+                            <div className="text-sm text-slate-600">
+                                {currentUser.displayName || currentUser.email}
+                            </div>
                         </div>
-                        <div className="text-xs text-slate-500">
-                            {currentGroup?.name || '個人家計簿'}
-                        </div>
-                        <div className="relative">
-                            <button 
-                                onClick={() => setShowSharingModal(true)} 
-                                className="p-2 text-slate-600 hover:text-green-600" 
-                                title="共有とグループ管理"
-                            >
-                                <Share size={28} />
-                            </button>
-                            {invitations.length > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                                    {invitations.length}
-                                </span>
-                            )}
-                        </div>
-                        <button 
-                            onClick={() => setShowSettingsModal(true)} 
-                            className="p-2 text-slate-600 hover:text-sky-600" 
-                            title="設定とバックアップ"
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowBudgetModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
                         >
-                            <Settings size={28} />
+                            <Target size={18} />
+                            <span className="hidden sm:inline">目標</span>
                         </button>
-                        <button 
-                            onClick={handleLogout} 
-                            className="p-2 text-slate-600 hover:text-red-600" 
-                            title="ログアウト"
+                        <button
+                            onClick={() => setShowSettingsModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors"
                         >
-                            <LogOut size={28} />
+                            <Settings size={18} />
+                            <span className="hidden sm:inline">設定</span>
+                        </button>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                        >
+                            <LogOut size={18} />
+                            <span className="hidden sm:inline">ログアウト</span>
                         </button>
                     </div>
                 </div>
-                {/* 月ナビゲーション */}
-                <div className="flex items-center justify-center space-x-4 my-4">
-                    <button 
-                        onClick={() => navigateMonth(-1)} 
-                        className="p-2 bg-sky-500 text-white rounded-lg shadow hover:bg-sky-600 transition-colors"
-                    >
-                        <ChevronLeft size={24} />
-                    </button>
-                    <h2 className="text-2xl font-semibold text-slate-700 w-48 text-center">
-                        {formatMonthYear(currentMonth).replace('-', '年 ')}月
-                    </h2>
-                    <button 
-                        onClick={() => navigateMonth(1)} 
-                        className="p-2 bg-sky-500 text-white rounded-lg shadow hover:bg-sky-600 transition-colors"
-                    >
-                        <ChevronRight size={24} />
-                    </button>
-                </div>
             </header>
 
-            {/* 支出追加ボタン (フローティング) */}
-            <div className="fixed bottom-6 right-6 z-30">
-                <button 
-                    onClick={() => { 
-                        setEditingExpense(null);
-                        setShowExpenseForm(true); 
-                    }} 
-                    className="bg-rose-500 text-white p-4 rounded-full shadow-lg hover:bg-rose-600 transition-all duration-300 ease-in-out transform hover:scale-110"
-                    aria-label="支出を記録する" 
-                >
-                    <PlusCircle size={32} />
-                </button>
+            {/* 月選択とサマリー */}
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div className="flex items-center justify-between mb-6">
+                    <button
+                        onClick={() => navigateMonth(-1)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                    >
+                        <ChevronLeft size={18} />
+                        前月
+                    </button>
+                    
+                    <h2 className="text-xl font-semibold text-slate-800">
+                        {currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月
+                    </h2>
+                    
+                    <button
+                        onClick={() => navigateMonth(1)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                    >
+                        次月
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
+
+                {/* 支出サマリー */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+                        <div className="flex items-center gap-3">
+                            <Users size={24} />
+                            <div>
+                                <div className="text-sm opacity-90">{user1Name}</div>
+                                <div className="text-2xl font-bold">{totals.user1Total.toLocaleString()}円</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
+                        <div className="flex items-center gap-3">
+                            <Users size={24} />
+                            <div>
+                                <div className="text-sm opacity-90">{user2Name}</div>
+                                <div className="text-2xl font-bold">{totals.user2Total.toLocaleString()}円</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+                        <div className="flex items-center gap-3">
+                            <DollarSign size={24} />
+                            <div>
+                                <div className="text-sm opacity-90">合計支出</div>
+                                <div className="text-2xl font-bold">{totals.totalExpense.toLocaleString()}円</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 精算情報 */}
+                {settlement.amount > 0 && (
+                    <div className="mt-6">
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div className="flex items-center gap-3">
+                                <TrendingUp className="text-yellow-600" size={20} />
+                                <div className="text-yellow-800">
+                                    <div className="font-semibold">精算が必要です</div>
+                                    <div className="text-sm">{settlement.message}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* 支出入力フォームモーダル */}
-            {showExpenseForm && ( 
-                <ExpenseFormModal
-                    onSubmitExpense={handleAddOrUpdateExpense} 
-                    user1Name={user1Name} 
-                    user2Name={user2Name} 
-                    categories={CATEGORIES} 
-                    expenseToEdit={editingExpense} 
-                    onClose={() => { 
-                        setShowExpenseForm(false); 
-                        setEditingExpense(null); 
-                    }} 
-                /> 
+            {/* 予算進捗 */}
+            {budgetComparison.totalBudget > 0 && (
+                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <Target size={20} />
+                        今月の予算進捗
+                    </h3>
+                    
+                    <div className="mb-4">
+                        <div className="flex justify-between text-sm text-slate-600 mb-2">
+                            <span>全体進捗</span>
+                            <span>{budgetComparison.totalSpent.toLocaleString()} / {budgetComparison.totalBudget.toLocaleString()}円</span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-3">
+                            <div 
+                                className={`h-3 rounded-full transition-all duration-300 ${
+                                    budgetComparison.overallPercentage > 100 ? 'bg-red-500' : 
+                                    budgetComparison.overallPercentage > 80 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
+                                style={{ width: `${Math.min(budgetComparison.overallPercentage, 100)}%` }}
+                            ></div>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                            {budgetComparison.overallPercentage.toFixed(1)}% 使用
+                            {budgetComparison.totalRemaining >= 0 ? 
+                                ` (残り ${budgetComparison.totalRemaining.toLocaleString()}円)` : 
+                                ` (${Math.abs(budgetComparison.totalRemaining).toLocaleString()}円 超過)`
+                            }
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {Object.entries(budgetComparison.categories)
+                            .filter(([, data]) => data.budget > 0)
+                            .map(([category, data]) => (
+                            <div key={category} className="border border-slate-200 rounded-lg p-3">
+                                <div className="flex justify-between text-sm mb-2">
+                                    <span className="font-medium">{category}</span>
+                                    <span className={data.isOverBudget ? 'text-red-600' : 'text-slate-600'}>
+                                        {data.spent.toLocaleString()} / {data.budget.toLocaleString()}円
+                                    </span>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-2">
+                                    <div 
+                                        className={`h-2 rounded-full transition-all duration-300 ${
+                                            data.isOverBudget ? 'bg-red-500' : 
+                                            data.percentage > 80 ? 'bg-yellow-500' : 'bg-green-500'
+                                        }`}
+                                        style={{ width: `${Math.min(data.percentage, 100)}%` }}
+                                    ></div>
+                                </div>
+                                <div className="text-xs text-slate-500 mt-1">
+                                    {data.percentage.toFixed(1)}% 使用
+                                    {data.remaining >= 0 ? 
+                                        ` (残り ${data.remaining.toLocaleString()}円)` : 
+                                        ` (${Math.abs(data.remaining).toLocaleString()}円 超過)`
+                                    }
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
 
-            
-            {/* メインコンテンツ (集計とグラフ) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <SummarySection 
-                    user1Name={user1Name} 
-                    user2Name={user2Name} 
-                    totals={totals} 
-                    settlement={settlement} 
-                    budgetComparison={budgetComparison}
-                />
-                <CategoryPieChart data={pieData} />
+            {/* メインコンテンツ - 2列レイアウト */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 支出リスト */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <ListChecks size={20} />
+                        支出一覧 ({monthlyFilteredExpenses.length}件)
+                    </h3>
+                    
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {monthlyFilteredExpenses.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500">
+                                <Info size={48} className="mx-auto mb-3 opacity-50" />
+                                <p>今月はまだ支出がありません</p>
+                                <p className="text-sm">右下の「+」ボタンから支出を記録しましょう</p>
+                            </div>
+                        ) : (
+                            monthlyFilteredExpenses.map(expense => (
+                                <div key={expense.id} className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-medium text-slate-800">{expense.description}</span>
+                                                <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-full">
+                                                    {expense.category}
+                                                </span>
+                                            </div>
+                                            <div className="text-sm text-slate-600">
+                                                {new Date(expense.date).toLocaleDateString('ja-JP')} - {expense.payer}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 ml-4">
+                                            <span className="font-semibold text-lg text-slate-800">
+                                                {expense.amount.toLocaleString()}円
+                                            </span>
+                                            <button
+                                                onClick={() => {
+                                                    setEditingExpense(expense);
+                                                    setShowExpenseForm(true);
+                                                }}
+                                                className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                            >
+                                                <Edit3 size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteExpense(expense.id)}
+                                                className="p-1 text-red-600 hover:bg-red-100 rounded"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* 円グラフ */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <PieChartIcon size={20} />
+                        カテゴリ別支出
+                    </h3>
+                    
+                    {pieData.length === 0 ? (
+                        <div className="flex items-center justify-center h-64 text-slate-500">
+                            <div className="text-center">
+                                <PieChartIcon size={48} className="mx-auto mb-3 opacity-50" />
+                                <p>データがありません</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={pieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                    >
+                                        {pieData.map((_, index) => (
+                                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value) => `${value.toLocaleString()}円`} />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* 支出一覧テーブル */}
-            <div className="mb-6">
-                <ExpenseTable 
-                    expenses={monthlyFilteredExpenses} 
-                    onDeleteExpense={handleDeleteExpense} 
-                    onEditExpense={handleEditExpenseClick} 
-                    user1Name={user1Name} 
-                    user2Name={user2Name} 
-                />
-            </div>
-            
-            {/* 共有モーダル */}
-            {showSharingModal && (
-                <SharingModal
-                    isOpen={showSharingModal}
-                    onClose={() => setShowSharingModal(false)}
-                    currentGroup={currentGroup}
-                    invitations={invitations}
-                    onCreateGroup={createGroup}
-                    onInviteUser={inviteUserToGroup}
-                    onRespondToInvitation={respondToInvitation}
-                    currentUser={currentUser}
+            {/* 浮動アクションボタン - 支出追加 */}
+            <button
+                onClick={() => {
+                    setEditingExpense(null);
+                    setShowExpenseForm(true);
+                }}
+                className="fixed bottom-6 right-6 w-14 h-14 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all duration-200 flex items-center justify-center hover:scale-105"
+            >
+                <PlusCircle size={24} />
+            </button>
+
+            {/* 支出フォームモーダル */}
+            {showExpenseForm && (
+                <ExpenseFormModal 
+                    editingExpense={editingExpense}
+                    user1Name={user1Name}
+                    user2Name={user2Name}
+                    onSave={handleAddOrUpdateExpense}
+                    onClose={() => {
+                        setShowExpenseForm(false);
+                        setEditingExpense(null);
+                    }}
+                    onOpenCalculator={openCalculator}
                 />
             )}
 
             {/* 設定モーダル */}
             {showSettingsModal && (
-                <SettingsModal
-                    isOpen={showSettingsModal}
-                    onClose={() => setShowSettingsModal(false)}
+                <SettingsModal 
+                    user1Name={user1Name}
+                    user2Name={user2Name}
+                    onSaveUserNames={handleSaveUserNames}
                     onExportData={handleExportData}
-                    onImportDataTrigger={() => fileInputRef.current && fileInputRef.current.click()}
-                    currentUser1Name={user1Name} 
-                    currentUser2Name={user2Name} 
-                    onSaveUserNames={handleSaveUserNames} 
+                    onImportData={handleImportData}
+                    fileInputRef={fileInputRef}
+                    onClose={() => setShowSettingsModal(false)}
+                    onShowPrivacy={() => setShowPrivacyModal(true)}
+                    onShowTerms={() => setShowTermsModal(true)}
                 />
             )}
 
             {/* 予算設定モーダル */}
             {showBudgetModal && (
-                <BudgetModal
-                    isOpen={showBudgetModal}
-                    onClose={() => setShowBudgetModal(false)}
-                    onSaveBudgets={handleSaveBudgets}
+                <BudgetModal 
                     currentMonth={currentMonth}
-                    currentBudgets={monthlyBudgets[formatMonthYear(currentMonth)] || {}}
                     monthlyBudgets={monthlyBudgets}
-                    categories={CATEGORIES}
+                    onSave={handleSaveBudgets}
+                    onClose={() => setShowBudgetModal(false)}
                 />
             )}
 
             {/* プライバシーポリシーモーダル */}
             {showPrivacyModal && (
-                <PrivacyPolicyModal
-                    isOpen={showPrivacyModal}
-                    onClose={() => setShowPrivacyModal(false)}
-                />
+                <PrivacyModal onClose={() => setShowPrivacyModal(false)} />
             )}
 
             {/* 利用規約モーダル */}
             {showTermsModal && (
-                <TermsOfServiceModal
-                    isOpen={showTermsModal}
-                    onClose={() => setShowTermsModal(false)}
-                />
+                <TermsModal onClose={() => setShowTermsModal(false)} />
             )}
 
-            {/* ファイルインポート用の隠しinput要素 */}
-            <input 
-                type="file" 
-                accept=".json" 
-                ref={fileInputRef} 
-                onChange={handleImportData} 
-                style={{ display: 'none' }} 
-            />
-
-            {/* フッター */}
-            <footer className="text-center mt-10 pt-6 border-t border-slate-300 text-sm text-slate-500">
-                <p>&copy; {new Date().getFullYear()} 家計簿アプリ. All rights reserved.</p>
-                <p className="mt-1"> 
-                    <Info size={14} className="inline mr-1"/> 
-                    データはクラウド (Firestore) に保存されます。
-                </p>
-                <div className="mt-3 space-x-4">
-                    <button 
-                        onClick={() => setShowPrivacyModal(true)}
-                        className="text-sky-600 hover:text-sky-800 underline"
-                    >
-                        プライバシーポリシー
-                    </button>
-                    <button 
-                        onClick={() => setShowTermsModal(true)}
-                        className="text-sky-600 hover:text-sky-800 underline"
-                    >
-                        利用規約
-                    </button>
-                </div>
-                <p className="mt-2">制作: YamaC</p>
-            </footer>
+            {/* 電卓モーダル */}
+            {showCalculator && (
+                <Calculator 
+                    onResult={handleCalculatorResult}
+                    onClose={() => {
+                        setShowCalculator(false);
+                        setCalculatorTarget(null);
+                    }}
+                />
+            )}
         </div>
     );
 }
 
-// --- 子コンポーネント定義 ---
+// --- 支出フォームモーダルコンポーネント ---
+const ExpenseFormModal = ({ editingExpense, user1Name, user2Name, onSave, onClose, onOpenCalculator }) => {
+    const [description, setDescription] = useState(editingExpense?.description || '');
+    const [amount, setAmount] = useState(editingExpense?.amount || '');
+    const [category, setCategory] = useState(editingExpense?.category || CATEGORIES[0]);
+    const [payer, setPayer] = useState(editingExpense?.payer || user1Name);
+    const [date, setDate] = useState(editingExpense?.date || formatDateToInput(new Date()));
 
-/**
- * 支出入力/編集モーダルコンポーネント
- */
-function ExpenseFormModal({ onSubmitExpense, user1Name, user2Name, categories, expenseToEdit, onClose }) {
-    const [purpose, setPurpose] = useState('');
-    const [amount, setAmount] = useState('');
-    const [payer, setPayer] = useState(user1Name);
-    const [category, setCategory] = useState(categories[0]);
-    const [date, setDate] = useState(formatDateToInput(new Date()));
-    const [errorMessage, setErrorMessage] = useState('');
-    const [showCalculator, setShowCalculator] = useState(false);
-    const [calculatorDisplay, setCalculatorDisplay] = useState('0');
-    const [calculatorExpression, setCalculatorExpression] = useState('');
-
-    useEffect(() => {
-        if (expenseToEdit) {
-            setPurpose(expenseToEdit.purpose); 
-            setAmount(expenseToEdit.amount.toString()); 
-            setPayer(expenseToEdit.payer);
-            setCategory(expenseToEdit.category); 
-            setDate(formatDateToInput(expenseToEdit.date));
-        } else {
-            setPurpose(''); 
-            setAmount(''); 
-            setPayer(user1Name); 
-            setCategory(categories[0]);
-            setDate(formatDateToInput(new Date()));
-        }
-        setCalculatorDisplay('0');
-        setCalculatorExpression('');
-    }, [expenseToEdit, user1Name, categories]);
-
-    // 電卓機能
-    const handleCalculatorClick = (value) => {
-        if (value === 'C') {
-            setCalculatorDisplay('0');
-            setCalculatorExpression('');
-        } else if (value === '=') {
-            try {
-                // 簡易計算機の安全な実装
-                const expression = calculatorExpression || calculatorDisplay;
-                const sanitizedExpression = expression.replace(/[^0-9+\-*/.() ]/g, '');
-                const result = Function('"use strict"; return (' + sanitizedExpression + ')')();
-                const resultString = result.toString();
-                setCalculatorDisplay(resultString);
-                setCalculatorExpression('');
-                setAmount(resultString);
-            } catch {
-                setCalculatorDisplay('エラー');
-                setCalculatorExpression('');
-            }
-        } else if (['+', '-', '*', '/'].includes(value)) {
-            if (calculatorExpression && !isNaN(calculatorDisplay)) {
-                setCalculatorExpression(calculatorExpression + calculatorDisplay + value);
-                setCalculatorDisplay('0');
-            } else if (!calculatorExpression && calculatorDisplay !== '0') {
-                setCalculatorExpression(calculatorDisplay + value);
-                setCalculatorDisplay('0');
-            }
-        } else {
-            if (calculatorDisplay === '0' || calculatorDisplay === 'エラー') {
-                setCalculatorDisplay(value);
-            } else {
-                setCalculatorDisplay(calculatorDisplay + value);
-            }
-        }
-    };
-
-    const toggleCalculator = () => {
-        setShowCalculator(!showCalculator);
-        if (!showCalculator) {
-            setCalculatorDisplay(amount || '0');
-            setCalculatorExpression('');
-        }
-    };
-
-    const handleSubmit = (e) => { 
+    const handleSubmit = (e) => {
         e.preventDefault();
-        if (!purpose.trim() || !amount.trim() || !date || !category || !payer) { 
-            setErrorMessage("すべての項目を入力してください。"); 
-            return; 
+        
+        if (!description.trim() || !amount || amount <= 0) {
+            alert('説明と正の金額を入力してください。');
+            return;
         }
-        const parsedAmount = parseFloat(amount);
-        if (isNaN(parsedAmount) || parsedAmount <= 0) { 
-            setErrorMessage("金額は0より大きい数値を入力してください。"); 
-            return; 
-        }
-        setErrorMessage('');
-        onSubmitExpense({ purpose, amount: parsedAmount, payer, category, date });
+
+        onSave({
+            description: description.trim(),
+            amount: parseInt(amount),
+            category,
+            payer,
+            date
+        });
     };
 
-    return ( 
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-40 transition-opacity duration-300 ease-in-out">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md relative transform transition-all duration-300 ease-in-out scale-100 opacity-100">
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-3 right-3 text-slate-500 hover:text-slate-700"
-                > 
-                    <XCircle size={24} /> 
-                </button>
-                <h3 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6 text-sky-700 text-center"> 
-                    {expenseToEdit ? "支出を編集" : "支出を記録"} 
-                </h3>
-                {errorMessage && (
-                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md flex items-center shadow">
-                        <AlertCircle size={18} className="mr-2 flex-shrink-0"/>
-                        <span className="text-sm">{errorMessage}</span>
-                    </div>
-                )}
-                <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-                    <div> 
-                        <label htmlFor="modal-date-form" className="block text-sm font-medium text-slate-700">日付</label> 
-                        <input 
-                            type="date" 
-                            id="modal-date-form" 
-                            value={date} 
-                            onChange={e => setDate(e.target.value)} 
-                            required 
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                        /> 
-                    </div>
-                    <div> 
-                        <label htmlFor="modal-purpose-form" className="block text-sm font-medium text-slate-700">用途</label> 
-                        <input 
-                            type="text" 
-                            id="modal-purpose-form" 
-                            value={purpose} 
-                            onChange={e => setPurpose(e.target.value)} 
-                            placeholder="例: スーパーでの買い物" 
-                            required 
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">
+                        {editingExpense ? '支出を編集' : '新しい支出を追加'}
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                        <XCircle size={20} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            説明
+                        </label>
+                        <input
+                            type="text"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="支出の説明を入力"
+                            required
                         />
                     </div>
-                    <div> 
-                        <label htmlFor="modal-amount-form" className="block text-sm font-medium text-slate-700">金額 (円)</label> 
-                        <div className="mt-1 relative">
-                            <input 
-                                type="number" 
-                                id="modal-amount-form" 
-                                value={amount} 
-                                onChange={e => setAmount(e.target.value)} 
-                                placeholder="例: 3000" 
-                                required 
-                                className="block w-full px-3 py-2 pr-10 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            金額
+                        </label>
+                        <div className="flex">
+                            <input
+                                type="number"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="金額を入力"
+                                min="1"
+                                required
                             />
                             <button
                                 type="button"
-                                onClick={toggleCalculator}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-sky-600"
-                                title="電卓を開く"
+                                onClick={(e) => {
+                                    const input = e.target.parentElement.querySelector('input[type="number"]');
+                                    onOpenCalculator(input);
+                                }}
+                                className="px-3 py-2 bg-blue-500 text-white border border-blue-500 rounded-r-md hover:bg-blue-600 transition-colors"
                             >
-                                <Calculator size={16} />
+                                <CalculatorIcon size={16} />
                             </button>
                         </div>
-                        {showCalculator && (
-                            <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
-                                <div className="mb-2">
-                                    <div className="text-xs text-slate-600 mb-1">
-                                        {calculatorExpression && `${calculatorExpression}${calculatorDisplay}`}
-                                    </div>
-                                    <div className="text-right text-lg font-mono bg-white p-2 border rounded">
-                                        {calculatorDisplay}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-4 gap-1">
-                                    {[
-                                        'C', '/', '*', '←',
-                                        '7', '8', '9', '-',
-                                        '4', '5', '6', '+',
-                                        '1', '2', '3', '=',
-                                        '0', '.', '', ''
-                                    ].map((btn, idx) => {
-                                        if (btn === '') return <div key={idx}></div>;
-                                        if (btn === '←') {
-                                            return (
-                                                <button
-                                                    key={idx}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (calculatorDisplay.length > 1) {
-                                                            setCalculatorDisplay(calculatorDisplay.slice(0, -1));
-                                                        } else {
-                                                            setCalculatorDisplay('0');
-                                                        }
-                                                    }}
-                                                    className="p-2 text-xs bg-slate-200 hover:bg-slate-300 rounded"
-                                                >
-                                                    <Delete size={12} />
-                                                </button>
-                                            );
-                                        }
-                                        return (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => handleCalculatorClick(btn)}
-                                                className={`p-2 text-xs rounded ${
-                                                    btn === '=' ? 'bg-sky-500 hover:bg-sky-600 text-white row-span-2' :
-                                                    ['C', '/', '*', '-', '+'].includes(btn) ? 'bg-slate-300 hover:bg-slate-400' :
-                                                    'bg-white hover:bg-slate-100 border'
-                                                } ${btn === '0' ? 'col-span-2' : ''}`}
-                                            >
-                                                {btn}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <div> 
-                            <label htmlFor="modal-payer-form" className="block text-sm font-medium text-slate-700">支払った人</label> 
-                            <select 
-                                id="modal-payer-form" 
-                                value={payer} 
-                                onChange={e => setPayer(e.target.value)} 
-                                required 
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                            > 
-                                <option value={user1Name}>{user1Name}</option> 
-                                <option value={user2Name}>{user2Name}</option> 
-                            </select> 
-                        </div>
-                        <div> 
-                            <label htmlFor="modal-category-form" className="block text-sm font-medium text-slate-700">ジャンル</label> 
-                            <select 
-                                id="modal-category-form" 
-                                value={category} 
-                                onChange={e => setCategory(e.target.value)} 
-                                required 
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                            > 
-                                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)} 
-                            </select> 
-                        </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            カテゴリ
+                        </label>
+                        <select
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {CATEGORIES.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
                     </div>
-                    <div className="pt-2">
-                        <button 
-                            type="submit" 
-                            className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-150 ease-in-out flex items-center justify-center"
-                        > 
-                            <Save size={18} className="mr-2"/> 
-                            {expenseToEdit ? "更新する" : "記録する"} 
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            支払者
+                        </label>
+                        <select
+                            value={payer}
+                            onChange={(e) => setPayer(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value={user1Name}>{user1Name}</option>
+                            <option value={user2Name}>{user2Name}</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            日付
+                        </label>
+                        <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button
+                            type="submit"
+                            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2"
+                        >
+                            <Save size={16} />
+                            {editingExpense ? '更新' : '保存'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        >
+                            キャンセル
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     );
-}
+};
 
-/**
- * 集計情報を表示するコンポーネント
- */
-function SummarySection({ user1Name, user2Name, totals, settlement, budgetComparison }) { 
-    const totalSpent = totals.totalExpense;
-    
-    return (
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg space-y-4 sm:space-y-6">
-            <div> 
-                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-sky-700 flex items-center">
-                    <Wallet size={20} className="mr-2"/>
-                    今月の支出
-                </h3> 
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center p-2 bg-red-50 rounded">
-                        <span className="text-sm font-medium text-red-700">合計支出:</span>
-                        <span className="text-lg font-bold text-red-700">{totalSpent.toLocaleString()} 円</span>
-                    </div>
-                    {budgetComparison.totalBudget > 0 && (
-                        <>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-slate-600">予算:</span>
-                                <span className="text-lg font-semibold text-emerald-600">{budgetComparison.totalBudget.toLocaleString()} 円</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-slate-600">残り:</span>
-                                <span className={`text-lg font-semibold ${
-                                    budgetComparison.totalRemaining >= 0 ? 'text-emerald-600' : 'text-red-600'
-                                }`}>
-                                    {budgetComparison.totalRemaining.toLocaleString()} 円
-                                </span>
-                            </div>
-                            <div className="w-full bg-slate-200 rounded-full h-3">
-                                <div 
-                                    className={`h-3 rounded-full transition-all duration-300 ${
-                                        budgetComparison.overallPercentage > 100 ? 'bg-red-500' : 
-                                        budgetComparison.overallPercentage > 80 ? 'bg-yellow-500' : 'bg-emerald-500'
-                                    }`}
-                                    style={{ width: `${Math.min(budgetComparison.overallPercentage, 100)}%` }}
-                                ></div>
-                            </div>
-                            <div className="text-center text-sm text-slate-600">
-                                {budgetComparison.overallPercentage.toFixed(1)}% 使用
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div> 
-            <hr/>
-            <div> 
-                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-sky-700">個人別支払額</h3> 
-                <div className="space-y-2"> 
-                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-md"> 
-                        <span className="font-medium text-blue-700">{user1Name}:</span> 
-                        <span className="font-bold text-lg sm:text-xl text-blue-700">{totals.user1Total.toLocaleString()} 円</span> 
-                    </div> 
-                    <div className="flex justify-between items-center p-3 bg-pink-50 rounded-md"> 
-                        <span className="font-medium text-pink-700">{user2Name}:</span> 
-                        <span className="font-bold text-lg sm:text-xl text-pink-700">{totals.user2Total.toLocaleString()} 円</span> 
-                    </div> 
-                </div> 
-            </div> 
-            <hr/>
-            <div> 
-                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-sky-700">精算情報</h3> 
-                <div 
-                    className={`p-3 sm:p-4 rounded-md text-center ${ 
-                        settlement.amount === 0 && totalSpent > 0 
-                        ? 'bg-green-100 text-green-700'
-                        : settlement.amount === 0 && totalSpent === 0 
-                        ? 'bg-slate-100 text-slate-600'
-                        : 'bg-amber-100 text-amber-700'
-                    }`}
-                > 
-                    <p className="text-md sm:text-lg font-semibold">{settlement.message}</p> 
-                </div> 
-            </div>
-        </div>
-    );
-}
-
-/**
- * 共有モーダルコンポーネント
- */
-function SharingModal({ 
-    isOpen, 
-    onClose, 
-    currentGroup, 
-    invitations, 
-    onCreateGroup, 
-    onInviteUser, 
-    onRespondToInvitation
-}) {
-    const [newGroupName, setNewGroupName] = useState('');
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [activeTab, setActiveTab] = useState('invitations');
-
-    if (!isOpen) return null;
-
-    const handleCreateGroup = () => {
-        if (!newGroupName.trim()) {
-            alert('グループ名を入力してください。');
-            return;
-        }
-        onCreateGroup(newGroupName);
-        setNewGroupName('');
-    };
-
-    const handleInviteUser = () => {
-        if (!inviteEmail.trim()) {
-            alert('メールアドレスを入力してください。');
-            return;
-        }
-        if (!currentGroup) {
-            alert('招待するにはまずグループを作成してください。');
-            return;
-        }
-        onInviteUser(inviteEmail);
-        setInviteEmail('');
-    };
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-3 right-3 text-slate-500 hover:text-slate-700"
-                >
-                    <XCircle size={24} />
-                </button>
-                
-                <h3 className="text-2xl font-semibold mb-6 text-green-700 text-center flex items-center justify-center">
-                    <Share size={26} className="mr-3 text-green-600" /> 
-                    家計簿共有管理
-                </h3>
-
-                {/* タブナビゲーション */}
-                <div className="flex mb-6 border-b">
-                    <button
-                        onClick={() => setActiveTab('invitations')}
-                        className={`px-4 py-2 font-medium text-sm ${
-                            activeTab === 'invitations' 
-                                ? 'text-green-700 border-b-2 border-green-700' 
-                                : 'text-slate-600 hover:text-green-600'
-                        }`}
-                    >
-                        招待一覧 {invitations.length > 0 && `(${invitations.length})`}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('group')}
-                        className={`px-4 py-2 font-medium text-sm ${
-                            activeTab === 'group' 
-                                ? 'text-green-700 border-b-2 border-green-700' 
-                                : 'text-slate-600 hover:text-green-600'
-                        }`}
-                    >
-                        グループ管理
-                    </button>
-                </div>
-
-                {/* 招待一覧タブ */}
-                {activeTab === 'invitations' && (
-                    <div className="space-y-4">
-                        <h4 className="text-lg font-semibold text-slate-700 flex items-center">
-                            <Mail size={20} className="mr-2 text-green-600"/>
-                            受信した招待
-                        </h4>
-                        
-                        {invitations.length === 0 ? (
-                            <p className="text-slate-500 text-center py-4">
-                                現在、招待はありません。
-                            </p>
-                        ) : (
-                            <div className="space-y-3">
-                                {invitations.map(invitation => (
-                                    <div key={invitation.id} className="border border-slate-200 rounded-lg p-4">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h5 className="font-semibold text-slate-700">
-                                                    {invitation.groupName}
-                                                </h5>
-                                                <p className="text-sm text-slate-600">
-                                                    {invitation.inviterEmail} からの招待
-                                                </p>
-                                                <p className="text-xs text-slate-500">
-                                                    {invitation.createdAt?.toDate().toLocaleDateString('ja-JP')}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex space-x-2">
-                                            <button
-                                                onClick={() => onRespondToInvitation(invitation.id, true)}
-                                                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md text-sm flex items-center justify-center"
-                                            >
-                                                <Check size={16} className="mr-1" />
-                                                承認
-                                            </button>
-                                            <button
-                                                onClick={() => onRespondToInvitation(invitation.id, false)}
-                                                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md text-sm flex items-center justify-center"
-                                            >
-                                                <X size={16} className="mr-1" />
-                                                辞退
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* グループ管理タブ */}
-                {activeTab === 'group' && (
-                    <div className="space-y-6">
-                        {/* 現在のグループ */}
-                        <div>
-                            <h4 className="text-lg font-semibold text-slate-700 mb-3 flex items-center">
-                                <Users size={20} className="mr-2 text-green-600"/>
-                                現在のグループ
-                            </h4>
-                            <div className="bg-slate-50 rounded-lg p-4">
-                                <div className="font-medium text-slate-700">
-                                    {currentGroup?.name || '個人家計簿'}
-                                </div>
-                                <div className="text-sm text-slate-600">
-                                    役割: {currentGroup?.role === 'owner' ? 'オーナー' : 'メンバー'}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 新しいグループを作成 */}
-                        <div>
-                            <h4 className="text-lg font-semibold text-slate-700 mb-3">
-                                新しいグループを作成
-                            </h4>
-                            <div className="space-y-3">
-                                <input
-                                    type="text"
-                                    value={newGroupName}
-                                    onChange={(e) => setNewGroupName(e.target.value)}
-                                    placeholder="グループ名を入力"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                                />
-                                <button
-                                    onClick={handleCreateGroup}
-                                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md flex items-center justify-center"
-                                >
-                                    <PlusCircle size={18} className="mr-2" />
-                                    グループを作成
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* メンバーを招待 */}
-                        {currentGroup && currentGroup.role === 'owner' && (
-                            <div>
-                                <h4 className="text-lg font-semibold text-slate-700 mb-3">
-                                    メンバーを招待
-                                </h4>
-                                <div className="space-y-3">
-                                    <input
-                                        type="email"
-                                        value={inviteEmail}
-                                        onChange={(e) => setInviteEmail(e.target.value)}
-                                        placeholder="招待するメールアドレス"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                                    />
-                                    <button
-                                        onClick={handleInviteUser}
-                                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md flex items-center justify-center"
-                                    >
-                                        <UserPlus size={18} className="mr-2" />
-                                        招待を送信
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                <button 
-                    onClick={onClose} 
-                    className="mt-6 w-full bg-slate-500 hover:bg-slate-600 text-white font-semibold py-2.5 px-4 rounded-md shadow-md transition duration-150 ease-in-out" 
-                >
-                    閉じる
-                </button>
-            </div>
-        </div>
-    );
-}
-
-/**
- * 設定モーダルコンポーネント
- */
-function SettingsModal({ 
-    isOpen, 
-    onClose, 
-    onExportData, 
-    onImportDataTrigger, 
-    currentUser1Name, 
-    currentUser2Name, 
-    onSaveUserNames 
-}) {
-    const [tempUser1, setTempUser1] = useState(currentUser1Name);
-    const [tempUser2, setTempUser2] = useState(currentUser2Name);
-
-    useEffect(() => {
-        setTempUser1(currentUser1Name);
-        setTempUser2(currentUser2Name);
-    }, [isOpen, currentUser1Name, currentUser2Name]);
-
-    const handleSaveClick = () => {
-        if (!tempUser1.trim() || !tempUser2.trim()) {
-            alert("ユーザー名は空にできません。");
-            return;
-        }
-        onSaveUserNames(tempUser1, tempUser2);
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md relative">
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-3 right-3 text-slate-500 hover:text-slate-700"
-                >
-                    <XCircle size={24} />
-                </button>
-                <h3 className="text-2xl font-semibold mb-6 text-sky-700 text-center flex items-center justify-center">
-                    <Settings size={26} className="mr-3 text-sky-600" /> 
-                    設定とデータ管理
-                </h3>
-                
-                <div className="mb-6 pt-4 border-t border-slate-200">
-                    <h4 className="text-lg font-semibold text-slate-700 mb-3 flex items-center">
-                        <Users size={20} className="mr-2 text-sky-600"/>
-                        参加者名の設定
-                    </h4>
-                    <div className="space-y-3">
-                        <div>
-                            <label 
-                                htmlFor="settings-user1Name" 
-                                className="block text-sm font-medium text-slate-600"
-                            >
-                                ユーザー1の名前:
-                            </label>
-                            <input 
-                                type="text" 
-                                id="settings-user1Name" 
-                                value={tempUser1} 
-                                onChange={(e) => setTempUser1(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                            />
-                        </div>
-                        <div>
-                            <label 
-                                htmlFor="settings-user2Name" 
-                                className="block text-sm font-medium text-slate-600"
-                            >
-                                ユーザー2の名前:
-                            </label>
-                            <input 
-                                type="text" 
-                                id="settings-user2Name" 
-                                value={tempUser2} 
-                                onChange={(e) => setTempUser2(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                            />
-                        </div>
-                        <button 
-                            onClick={handleSaveClick}
-                            className="w-full flex items-center justify-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-md transition-colors duration-150 text-sm"
-                        >
-                            <Save size={18} className="mr-2"/> ユーザー名を保存
-                        </button>
-                    </div>
-                </div>
-
-                <div className="pt-6 border-t border-slate-200">
-                    <h4 className="text-lg font-semibold text-slate-700 mb-3">データバックアップ</h4>
-                    <div className="space-y-4">
-                        <button 
-                            onClick={onExportData} 
-                            className="w-full flex items-center justify-center px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md transition-colors duration-150" 
-                        >
-                            <Upload size={20} className="mr-2" />
-                            全データをエクスポート (.json)
-                        </button>
-                        <button 
-                            onClick={onImportDataTrigger} 
-                            className="w-full flex items-center justify-center px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-md transition-colors duration-150" 
-                        >
-                            <Download size={20} className="mr-2" />
-                            データをインポート (.json)
-                        </button>
-                        <p className="text-xs text-slate-500 mt-2">
-                            <Info size={14} className="inline mr-1" />
-                            インポートを行うと、現在のデータは上書きされます。事前にエクスポートをお勧めします。
-                        </p>
-                    </div>
-                </div>
-
-                <button 
-                    onClick={onClose} 
-                    className="mt-8 w-full bg-slate-500 hover:bg-slate-600 text-white font-semibold py-2.5 px-4 rounded-md shadow-md transition duration-150 ease-in-out" 
-                >
-                    閉じる
-                </button>
-            </div>
-        </div>
-    );
-}
-
-/**
- * 支出一覧を表示するテーブルコンポーネント
- */
-function ExpenseTable({ expenses, onDeleteExpense, onEditExpense, user1Name }) { 
-    if (expenses.length === 0) { 
-        return ( 
-            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg"> 
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 text-sky-700 flex items-center"> 
-                    <ListChecks size={24} className="mr-2"/> 
-                    今月の支出一覧 
-                </h3> 
-                <p className="text-slate-500">まだ支出はありません。</p> 
-            </div> 
-        ); 
-    }
-
-    return ( 
-        <div className="bg-white p-4 md:p-6 rounded-lg shadow-lg"> 
-            <h3 className="text-lg sm:text-xl font-semibold mb-4 text-sky-700 flex items-center"> 
-                <ListChecks size={24} className="mr-2"/> 
-                今月の支出一覧 
-            </h3> 
-            <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm text-left text-slate-500"> 
-                    <thead className="text-xs text-slate-700 uppercase bg-slate-50"> 
-                        <tr> 
-                            <th scope="col" className="px-3 py-3">日付</th> 
-                            <th scope="col" className="px-3 py-3">用途</th> 
-                            <th scope="col" className="px-3 py-3 text-right">金額</th> 
-                            <th scope="col" className="px-3 py-3">支払者</th> 
-                            <th scope="col" className="px-3 py-3">ジャンル</th> 
-                            <th scope="col" className="px-3 py-3 text-center">操作</th> 
-                        </tr> 
-                    </thead> 
-                    <tbody> 
-                        {expenses.map(expense => ( 
-                            <tr key={expense.id} className="bg-white border-b hover:bg-slate-50"> 
-                                <td className="px-3 py-3 whitespace-nowrap"> 
-                                    {new Date(expense.date).toLocaleDateString('ja-JP')} 
-                                </td> 
-                                <td className="px-3 py-3 font-medium text-slate-900"> 
-                                    {expense.purpose} 
-                                </td> 
-                                <td className="px-3 py-3 text-right whitespace-nowrap"> 
-                                    {expense.amount.toLocaleString()} 円 
-                                </td> 
-                                <td 
-                                    className={`px-3 py-3 font-semibold whitespace-nowrap ${ 
-                                        expense.payer === user1Name ? 'text-blue-600' : 'text-pink-600' 
-                                    }`}
-                                > 
-                                    {expense.payer} 
-                                </td> 
-                                <td className="px-3 py-3 whitespace-nowrap"> 
-                                    {expense.category} 
-                                </td> 
-                                <td className="px-3 py-3 text-center whitespace-nowrap"> 
-                                    <button 
-                                        onClick={() => onEditExpense(expense)} 
-                                        className="text-sky-600 hover:text-sky-800 mr-2 p-1" 
-                                        aria-label="編集"
-                                    >
-                                        <Edit3 size={18}/>
-                                    </button> 
-                                    <button 
-                                        onClick={() => onDeleteExpense(expense.id)} 
-                                        className="text-red-500 hover:text-red-700 p-1" 
-                                        aria-label="削除"
-                                    >
-                                        <Trash2 size={18}/>
-                                    </button> 
-                                </td> 
-                            </tr> 
-                        ))} 
-                    </tbody> 
-                </table> 
-            </div> 
-        </div> 
-    );
-}
-
-/**
- * ジャンル別支出の円グラフを表示するコンポーネント
- */
-function CategoryPieChart({ data }) { 
-    if (!data || data.length === 0) { 
-        return ( 
-            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg"> 
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 text-sky-700 flex items-center"> 
-                    <PieChartIcon size={24} className="mr-2"/> 
-                    ジャンル別支出 
-                </h3> 
-                <p className="text-slate-500">支出データがありません。</p> 
-            </div> 
-        ); 
-    }
-
-    return ( 
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg"> 
-            <h3 className="text-lg sm:text-xl font-semibold mb-4 text-sky-700 flex items-center"> 
-                <PieChartIcon size={24} className="mr-2"/> 
-                ジャンル別支出 
-            </h3> 
-            <div className="flex justify-center items-center">
-                <ResponsiveContainer width="100%" height={350}> 
-                <PieChart> 
-                    <Pie 
-                        data={data}
-                        cx="50%"
-                        cy="45%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} 
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        minAngle={1}
-                    >
-                        {data.map((entry, index) => ( 
-                            <Cell 
-                                key={`cell-${index}`} 
-                                fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} 
-                            /> 
-                        ))} 
-                    </Pie> 
-                    <Tooltip formatter={(value, name) => [`${value.toLocaleString()} 円`, name]} /> 
-                    <Legend 
-                        wrapperStyle={{fontSize: "0.875rem", paddingTop: "10px" }}
-                        formatter={(value) => ( 
-                            <span>{value}</span> 
-                        )}
-                    /> 
-                </PieChart> 
-                </ResponsiveContainer> 
-            </div>
-        </div> 
-    );
-}
-
-/**
- * 予算設定モーダルコンポーネント
- */
-function BudgetModal({ isOpen, onClose, onSaveBudgets, currentMonth, currentBudgets, monthlyBudgets, categories }) {
-    const [budgets, setBudgets] = useState({});
-
-    useEffect(() => {
-        setBudgets(currentBudgets);
-    }, [currentBudgets, isOpen]);
-
-    const handleBudgetChange = (category, value) => {
-        setBudgets(prev => ({
-            ...prev,
-            [category]: parseFloat(value) || 0
-        }));
-    };
+// --- 設定モーダルコンポーネント ---
+const SettingsModal = ({ user1Name, user2Name, onSaveUserNames, onExportData, onImportData, fileInputRef, onClose, onShowPrivacy, onShowTerms }) => {
+    const [tempUser1Name, setTempUser1Name] = useState(user1Name);
+    const [tempUser2Name, setTempUser2Name] = useState(user2Name);
 
     const handleSave = () => {
-        const monthKey = formatMonthYear(currentMonth);
-        const cleanedBudgets = {};
-        Object.entries(budgets).forEach(([category, amount]) => {
-            if (amount && amount > 0) {
-                cleanedBudgets[category] = amount;
-            }
-        });
-        
-        const updatedBudgets = {
-            ...(monthlyBudgets || {}),
-            [monthKey]: cleanedBudgets
-        };
-        
-        console.log("Saving budget data:", updatedBudgets);
-        onSaveBudgets(updatedBudgets);
+        onSaveUserNames(tempUser1Name, tempUser2Name);
     };
 
-    const totalBudget = Object.values(budgets).reduce((sum, amount) => sum + (amount || 0), 0);
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">設定</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                        <XCircle size={20} />
+                    </button>
+                </div>
 
-    if (!isOpen) return null;
+                <div className="space-y-6">
+                    {/* ユーザー名設定 */}
+                    <div>
+                        <h4 className="font-medium text-gray-700 mb-3">ユーザー名設定</h4>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">ユーザー1の名前</label>
+                                <input
+                                    type="text"
+                                    value={tempUser1Name}
+                                    onChange={(e) => setTempUser1Name(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="ユーザー1"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">ユーザー2の名前</label>
+                                <input
+                                    type="text"
+                                    value={tempUser2Name}
+                                    onChange={(e) => setTempUser2Name(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="ユーザー2"
+                                />
+                            </div>
+                            <button
+                                onClick={handleSave}
+                                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2"
+                            >
+                                <Save size={16} />
+                                ユーザー名を保存
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* データ管理 */}
+                    <div>
+                        <h4 className="font-medium text-gray-700 mb-3">データ管理</h4>
+                        <div className="space-y-3">
+                            <button
+                                onClick={onExportData}
+                                className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center justify-center gap-2"
+                            >
+                                <Download size={16} />
+                                データをエクスポート
+                            </button>
+                            
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full bg-amber-600 text-white py-2 px-4 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center justify-center gap-2"
+                            >
+                                <Upload size={16} />
+                                データをインポート
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".json"
+                                onChange={onImportData}
+                                className="hidden"
+                            />
+                        </div>
+                    </div>
+
+                    {/* その他 */}
+                    <div>
+                        <h4 className="font-medium text-gray-700 mb-3">その他</h4>
+                        <div className="space-y-2">
+                            <button
+                                onClick={onShowPrivacy}
+                                className="w-full text-left px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            >
+                                プライバシーポリシー
+                            </button>
+                            <button
+                                onClick={onShowTerms}
+                                className="w-full text-left px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            >
+                                利用規約
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- 予算設定モーダルコンポーネント ---
+const BudgetModal = ({ currentMonth, monthlyBudgets, onSave, onClose }) => {
+    const monthKey = formatMonthYear(currentMonth);
+    const currentMonthBudgets = monthlyBudgets[monthKey] || {};
+    
+    const [tempBudgets, setTempBudgets] = useState(() => {
+        const budgets = {};
+        CATEGORIES.forEach(category => {
+            budgets[category] = currentMonthBudgets[category] || 0;
+        });
+        return budgets;
+    });
+
+    const handleSave = () => {
+        const newMonthlyBudgets = {
+            ...monthlyBudgets,
+            [monthKey]: tempBudgets
+        };
+        onSave(newMonthlyBudgets);
+        onClose();
+    };
+
+    const totalBudget = Object.values(tempBudgets).reduce((sum, budget) => sum + budget, 0);
 
     return (
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-3 right-3 text-slate-500 hover:text-slate-700"
-                >
-                    <XCircle size={24} />
-                </button>
-                
-                <h3 className="text-2xl font-semibold mb-6 text-emerald-700 text-center flex items-center justify-center">
-                    <Target size={26} className="mr-3 text-emerald-600" /> 
-                    {formatMonthYear(currentMonth).replace('-', '年 ')}月の予算設定
-                </h3>
-                
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">
+                        {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月 予算設定
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                        <XCircle size={20} />
+                    </button>
+                </div>
+
                 <div className="space-y-4">
-                    {categories.map(category => (
-                        <div key={category} className="flex justify-between items-center p-3 bg-slate-50 rounded-md">
-                            <label className="text-sm font-medium text-slate-700 min-w-[80px]">
-                                {category}:
+                    {CATEGORIES.map(category => (
+                        <div key={category}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                {category}
                             </label>
-                            <div className="flex items-center space-x-2">
-                                <input 
-                                    type="number" 
-                                    value={budgets[category] || ''} 
-                                    onChange={(e) => handleBudgetChange(category, e.target.value)}
-                                    placeholder="0"
-                                    className="w-24 px-2 py-1 border border-slate-300 rounded text-right text-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                                />
-                                <span className="text-sm text-slate-600">円</span>
-                            </div>
+                            <input
+                                type="number"
+                                value={tempBudgets[category]}
+                                onChange={(e) => setTempBudgets(prev => ({
+                                    ...prev,
+                                    [category]: parseInt(e.target.value) || 0
+                                }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="0"
+                                min="0"
+                            />
                         </div>
                     ))}
-                    
-                    <div className="pt-4 border-t border-slate-200">
-                        <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-md">
-                            <span className="font-semibold text-emerald-700">合計予算:</span>
-                            <span className="font-bold text-lg text-emerald-700">{totalBudget.toLocaleString()} 円</span>
+
+                    <div className="border-t pt-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="font-medium text-gray-700">合計予算</span>
+                            <span className="text-lg font-semibold">{totalBudget.toLocaleString()}円</span>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSave}
+                                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2"
+                            >
+                                <Save size={16} />
+                                保存
+                            </button>
+                            <button
+                                onClick={onClose}
+                                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                            >
+                                キャンセル
+                            </button>
                         </div>
                     </div>
-                    
-                    <div className="flex space-x-3 pt-4">
-                        <button 
-                            onClick={handleSave}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-md shadow-md transition duration-150 ease-in-out flex items-center justify-center"
-                        >
-                            <Save size={18} className="mr-2"/> 
-                            予算を保存
-                        </button>
-                        <button 
-                            onClick={onClose}
-                            className="flex-1 bg-slate-500 hover:bg-slate-600 text-white font-semibold py-3 px-4 rounded-md shadow-md transition duration-150 ease-in-out"
-                        >
-                            キャンセル
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
     );
-}
+};
 
-/**
- * プライバシーポリシーモーダルコンポーネント
- */
-function PrivacyPolicyModal({ isOpen, onClose }) {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-2xl relative max-h-[80vh] overflow-y-auto">
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-3 right-3 text-slate-500 hover:text-slate-700"
-                >
-                    <XCircle size={24} />
+// --- プライバシーポリシーモーダル ---
+const PrivacyModal = ({ onClose }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">プライバシーポリシー</h3>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                    <XCircle size={20} />
                 </button>
+            </div>
+            <div className="prose prose-sm max-w-none">
+                <h4>個人情報の収集について</h4>
+                <p>当アプリケーションは、サービス提供のために以下の情報を収集します：</p>
+                <ul>
+                    <li>メールアドレス（認証目的）</li>
+                    <li>支出データ（アプリ機能提供目的）</li>
+                    <li>設定情報（アプリ機能提供目的）</li>
+                </ul>
                 
-                <h3 className="text-2xl font-semibold mb-6 text-sky-700">プライバシーポリシー</h3>
+                <h4>情報の利用目的</h4>
+                <p>収集した情報は以下の目的でのみ利用します：</p>
+                <ul>
+                    <li>サービスの提供・運営</li>
+                    <li>ユーザー認証</li>
+                    <li>データの保存・同期</li>
+                </ul>
                 
-                <div className="space-y-4 text-sm text-slate-700">
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">1. 収集する情報</h4>
-                        <p>本アプリケーションは以下の情報を収集します：</p>
-                        <ul className="list-disc list-inside ml-4 mt-2">
-                            <li>支出データ（金額、カテゴリ、日付、支払者、用途）</li>
-                            <li>予算設定データ</li>
-                            <li>ユーザー名設定</li>
-                            <li>Firebase認証による匿名ユーザーID</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">2. 情報の利用目的</h4>
-                        <p>収集した情報は以下の目的で利用します：</p>
-                        <ul className="list-disc list-inside ml-4 mt-2">
-                            <li>家計簿機能の提供</li>
-                            <li>データの保存と同期</li>
-                            <li>アプリケーションの改善</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">3. 情報の保存</h4>
-                        <p>ユーザーデータはGoogle Firebase Firestoreに暗号化されて保存されます。データは各ユーザーのアカウントに紐付けられ、他のユーザーからはアクセスできません。</p>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">4. 第三者への提供</h4>
-                        <p>ユーザーの同意なしに個人情報を第三者に提供することはありません。ただし、法令に基づく場合は除きます。</p>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">5. データの削除</h4>
-                        <p>ユーザーはいつでもアプリ内のデータ削除機能を使用して、すべてのデータを削除できます。</p>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">6. お問い合わせ</h4>
-                        <p>プライバシーに関するご質問は、GitHub Issues にてお問い合わせください。</p>
-                    </section>
-                </div>
-
-                <div className="mt-6 text-center">
-                    <button 
-                        onClick={onClose}
-                        className="bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-6 rounded-md shadow-md transition duration-150 ease-in-out"
-                    >
-                        閉じる
-                    </button>
-                </div>
+                <h4>情報の保護</h4>
+                <p>お客様の個人情報は、Firebase Authenticationおよび Firebase Firestoreにより適切に暗号化・保護されています。</p>
+                
+                <h4>情報の第三者提供</h4>
+                <p>当アプリケーションは、お客様の個人情報を第三者に提供することはありません。</p>
+                
+                <h4>お問い合わせ</h4>
+                <p>プライバシーポリシーに関するお問い合わせは、開発者までご連絡ください。</p>
             </div>
         </div>
-    );
-}
+    </div>
+);
 
-/**
- * 利用規約モーダルコンポーネント
- */
-function TermsOfServiceModal({ isOpen, onClose }) {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-2xl relative max-h-[80vh] overflow-y-auto">
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-3 right-3 text-slate-500 hover:text-slate-700"
-                >
-                    <XCircle size={24} />
+// --- 利用規約モーダル ---
+const TermsModal = ({ onClose }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">利用規約</h3>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                    <XCircle size={20} />
                 </button>
+            </div>
+            <div className="prose prose-sm max-w-none">
+                <h4>サービスの利用について</h4>
+                <p>当アプリケーションは、個人の家計管理を目的として提供されています。</p>
                 
-                <h3 className="text-2xl font-semibold mb-6 text-sky-700">利用規約</h3>
+                <h4>禁止事項</h4>
+                <p>以下の行為を禁止します：</p>
+                <ul>
+                    <li>本サービスの妨害行為</li>
+                    <li>他のユーザーへの迷惑行為</li>
+                    <li>虚偽の情報の登録</li>
+                    <li>商業目的での利用</li>
+                </ul>
                 
-                <div className="space-y-4 text-sm text-slate-700">
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">1. 利用条件</h4>
-                        <p>本アプリケーションは無料で提供されており、個人的な家計管理の目的でのみ使用できます。</p>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">2. 禁止事項</h4>
-                        <p>以下の行為を禁止します：</p>
-                        <ul className="list-disc list-inside ml-4 mt-2">
-                            <li>本アプリケーションの不正利用</li>
-                            <li>他のユーザーの迷惑となる行為</li>
-                            <li>法令に違反する行為</li>
-                            <li>システムに過度な負荷をかける行為</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">3. 免責事項</h4>
-                        <p>本アプリケーションの利用により生じた損害について、開発者は一切の責任を負いません。データのバックアップは各自で行ってください。</p>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">4. サービスの変更・終了</h4>
-                        <p>開発者は事前の通知なしに、本アプリケーションの内容を変更または終了する場合があります。</p>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">5. 規約の変更</h4>
-                        <p>本規約は必要に応じて変更される場合があります。変更後の規約は、アプリケーション上に掲示された時点で効力を生じます。</p>
-                    </section>
-
-                    <section>
-                        <h4 className="font-semibold text-base mb-2">6. 準拠法</h4>
-                        <p>本規約は日本法に準拠し、日本の裁判所を専属的管轄裁判所とします。</p>
-                    </section>
-                </div>
-
-                <div className="mt-6 text-center">
-                    <button 
-                        onClick={onClose}
-                        className="bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-6 rounded-md shadow-md transition duration-150 ease-in-out"
-                    >
-                        閉じる
-                    </button>
-                </div>
+                <h4>免責事項</h4>
+                <p>当アプリケーションの使用により生じた損害について、開発者は一切の責任を負いません。</p>
+                
+                <h4>サービスの変更・終了</h4>
+                <p>開発者は、事前の通知なしにサービスの内容を変更、または終了する場合があります。</p>
+                
+                <h4>準拠法</h4>
+                <p>本規約は日本法に準拠し、日本の裁判所を専属的合意管轄とします。</p>
             </div>
         </div>
-    );
-}
+    </div>
+);
 
 export default Home;
