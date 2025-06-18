@@ -24,7 +24,8 @@
       "Bash(npm --version)",
       "Bash(npm i:*)",
       "Bash(ls:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": []
   }
