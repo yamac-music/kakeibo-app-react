@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '../contexts/AuthContext.jsx'
@@ -47,7 +47,7 @@ describe('Login', () => {
   })
 
   it('フォームが送信できる', async () => {
-    const user = userEvent.setup()
+    const _user = userEvent.setup()
     
     render(
       <TestWrapper>

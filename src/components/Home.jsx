@@ -124,7 +124,8 @@ function Home() {
                 expenseList.push({
                     id: doc.id,
                     ...data,
-                    date: data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : data.date
+                    // 編集された日付を優先し、存在しない場合のみcreatedAtを使用
+                    date: data.date || (data.createdAt?.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : formatDateToInput(new Date()))
                 });
             });
             setExpenses(expenseList);
@@ -171,6 +172,8 @@ function Home() {
             const expenseData = {
                 ...expenseFormData,
                 uid: currentUser.uid,
+                // dateフィールドを明示的に保存し、createdAtは作成時刻のみ記録
+                date: expenseFormData.date,
                 createdAt: editingExpense ? editingExpense.createdAt : Timestamp.fromDate(new Date()),
                 updatedAt: Timestamp.fromDate(new Date())
             };
@@ -400,7 +403,9 @@ function Home() {
                             batch.set(newDocRef, {
                                 ...expense,
                                 uid: currentUser.uid,
-                                createdAt: Timestamp.fromDate(new Date(expense.date)),
+                                // インポート時もdateフィールドを保持し、作成日時は現在時刻
+                                date: expense.date,
+                                createdAt: Timestamp.fromDate(new Date()),
                                 updatedAt: Timestamp.fromDate(new Date())
                             });
                         });
@@ -443,7 +448,7 @@ function Home() {
                         <div>
                             <h1 className="text-2xl font-bold text-slate-800">二人暮らしの家計簿</h1>
                             <div className="text-sm text-slate-600">
-                                {currentUser.displayName || currentUser.email}
+                                {currentUser?.displayName || currentUser?.email || 'ゲストユーザー'}
                             </div>
                         </div>
                     </div>

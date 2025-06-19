@@ -127,6 +127,31 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 - Firebase offline mode testing
 - Coverage reporting available with `npm run test:coverage`
 
+## Critical Development Workflow
+
+### Before Making Changes
+1. Always run `npm run lint` before committing changes
+2. Run tests with `npm run test:run` to ensure nothing breaks
+3. Use Docker environment for consistent development: `docker-compose --profile dev up --build`
+
+### Single Test Execution
+```bash
+# Run specific test file
+npm run test -- Login.test.jsx
+
+# Run tests matching pattern
+npm run test -- --grep "authentication"
+
+# Docker test execution
+docker-compose --profile test run --rm app-test npm run test -- Login.test.jsx
+```
+
+### Code Quality Standards
+- All React components must be functional components with hooks
+- Use Context API for state management (AuthContext pattern)
+- Maintain Firebase security with uid validation in all Firestore operations
+- Follow existing Tailwind CSS patterns for consistent styling
+
 ## Troubleshooting
 
 ### Firebase Configuration Issues

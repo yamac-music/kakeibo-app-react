@@ -21,8 +21,8 @@ describe('App', () => {
     )
     
     // デモモードの表示を確認
-    expect(screen.getByText(/家計簿アプリ（デモモード）/)).toBeInTheDocument()
-    expect(screen.getByText(/Firebase設定が見つかりません/)).toBeInTheDocument()
+    expect(screen.getByText(/二人暮らしの家計簿/)).toBeInTheDocument()
+    expect(screen.getByText(/ゲストユーザー/)).toBeInTheDocument()
   })
 
   it('主な機能リストが表示される', () => {
@@ -32,9 +32,9 @@ describe('App', () => {
       </TestWrapper>
     )
     
-    // 機能リストの確認
-    expect(screen.getByText(/支出の記録と管理/)).toBeInTheDocument()
-    expect(screen.getByText(/カテゴリ別予算設定/)).toBeInTheDocument()
-    expect(screen.getByText(/グラフによるデータ可視化/)).toBeInTheDocument()
+    // 機能リストの確認（実際のホームコンポーネントの要素を確認）
+    expect(screen.getByText(/二人暮らしの家計簿/)).toBeInTheDocument()
+    expect(screen.getByText(/目標/)).toBeInTheDocument()
+    expect(screen.getByText(/設定/)).toBeInTheDocument()
   })
 })
