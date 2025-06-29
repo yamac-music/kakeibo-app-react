@@ -2,6 +2,50 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext.jsx';
 
+// エラーバウンダリー
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        if (!import.meta.env.PROD) {
+            console.error('App Error:', error, errorInfo);
+        }
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+                    <div className="max-w-md mx-auto text-center p-6 bg-white rounded-lg shadow-lg">
+                        <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                        <h1 className="text-xl font-bold text-slate-800 mb-2">
+                            アプリケーションエラー
+                        </h1>
+                        <p className="text-slate-600 mb-4">
+                            申し訳ございません。予期しないエラーが発生しました。
+                        </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                            ページを再読み込み
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 // 認証関連コンポーネント
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
@@ -34,8 +78,25 @@ function DemoModeWrapper({ children }) {
     );
 }
 
+// ローディング表示コンポーネント
+function LoadingSpinner() {
+    return (
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+            <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600"></div>
+                <p className="mt-4 text-slate-600">初期化中...</p>
+            </div>
+        </div>
+    );
+}
+
 function App() {
-    const { isFirebaseAvailable } = useAuth();
+    const { isFirebaseAvailable, loading } = useAuth();
+
+    // Firebase初期化中はローディング表示
+    if (loading) {
+        return <LoadingSpinner />;
+    }
 
     // Firebase が設定されていない場合は制限付きデモモードで表示
     if (!isFirebaseAvailable) {
@@ -63,4 +124,11 @@ function App() {
     );
 }
 
-export default App;
+// エラーバウンダリーでラップしたAppコンポーネントをエクスポート
+export default function AppWithErrorBoundary() {
+    return (
+        <ErrorBoundary>
+            <App />
+        </ErrorBoundary>
+    );
+}
