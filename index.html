@@ -39,12 +39,15 @@
     <!-- GitHub Pages SPA redirect script -->
     <script type="text/javascript">
       (function(l) {
-        if (l.search[1] === '/' ) {
+        if (l.search && l.search[1] === '/' ) {
           var decoded = l.search.slice(1).split('&').map(function(s) { 
             return s.replace(/~and~/g, '&')
           }).join('?');
+          // For GitHub Pages with base path, ensure correct routing
+          var basePath = '/kakeibo-app-react';
+          var targetPath = decoded.startsWith('?/') ? decoded.slice(2) : decoded.slice(1);
           window.history.replaceState(null, null,
-              l.pathname.slice(0, -1) + decoded + l.hash
+              basePath + '/' + targetPath + l.hash
           );
         }
       }(window.location))
