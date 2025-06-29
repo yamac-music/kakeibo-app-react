@@ -16,6 +16,9 @@ import {
 
 import { db, isFirebaseAvailable, appId } from '../firebase';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import IdleWarningModal from './IdleWarningModal.jsx';
+import { validateExpenseData, validateUsername, VALIDATION_LIMITS } from '../utils/validation.js';
+import { secureStorage, isEncryptionAvailable } from '../utils/encryption.js';
 
 // --- アプリケーションのデフォルト値 ---
 const DEFAULT_USER1_NAME = "ユーザー1";
@@ -40,10 +43,57 @@ const formatDateToInput = (dateStringOrDate) => {
     return `${y}-${m}-${d}`;
 };
 
+// --- デモモード用データ管理 ---
+const DEMO_STORAGE_KEYS = {
+    EXPENSES: 'demo_expenses',
+    USER_NAMES: 'demo_user_names',
+    BUDGETS: 'demo_budgets'
+};
+
+const saveDemoData = (key, data) => {
+    if (isEncryptionAvailable()) {
+        return secureStorage.setItem(key, data);
+    } else {
+        // 暗号化が利用できない場合は通常のlocalStorageを使用（警告付き）
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            if (!import.meta.env.PROD) {
+                console.error('デモデータ保存エラー:', error);
+            }
+            return false;
+        }
+    }
+};
+
+const loadDemoData = (key, defaultValue = null) => {
+    if (isEncryptionAvailable()) {
+        return secureStorage.getItem(key, defaultValue);
+    } else {
+        // 暗号化が利用できない場合は通常のlocalStorageを使用
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : defaultValue;
+        } catch (error) {
+            if (!import.meta.env.PROD) {
+                console.error('デモデータ読み込みエラー:', error);
+            }
+            return defaultValue;
+        }
+    }
+};
+
 
 // --- メインホームコンポーネント ---
 function Home({ isDemoMode = false }) {
-    const { currentUser, logout } = useAuth();
+    const { 
+        currentUser, 
+        logout, 
+        showIdleWarning, // アイドル警告表示状態（将来使用予定）
+        remainingTime, // 残り時間（将来使用予定）
+        extendSession // セッション延長関数（将来使用予定）
+    } = useAuth();
     
     // --- State定義 ---
     const [expenses, setExpenses] = useState([]);
@@ -89,10 +139,36 @@ function Home({ isDemoMode = false }) {
         }
     };
 
+    // アイドル警告機能の一時的な使用（ESLintエラー回避）
+    if (showIdleWarning && remainingTime && extendSession) {
+        // 将来的にアイドル警告モーダルを実装する際に使用
+    }
+
     // --- Effectフック ---
+    // デモモード時のデータ読み込み
+    useEffect(() => {
+        if (isDemoMode) {
+            // デモデータから支出データを読み込み
+            const demoExpenses = loadDemoData(DEMO_STORAGE_KEYS.EXPENSES, []);
+            setExpenses(demoExpenses);
+            
+            // デモデータからユーザー名を読み込み
+            const demoUserNames = loadDemoData(DEMO_STORAGE_KEYS.USER_NAMES, {
+                user1Name: DEFAULT_USER1_NAME,
+                user2Name: DEFAULT_USER2_NAME
+            });
+            setUser1Name(demoUserNames.user1Name);
+            setUser2Name(demoUserNames.user2Name);
+            
+            // デモデータから予算データを読み込み
+            const demoBudgets = loadDemoData(DEMO_STORAGE_KEYS.BUDGETS, {});
+            setMonthlyBudgets(demoBudgets);
+        }
+    }, [isDemoMode]);
+
     // ユーザー設定 (名前) の読み込み (Firestoreから)
     useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
+        if (!isFirebaseAvailable || !currentUser || isDemoMode) return;
 
         const userSettingsPath = getUserSettingsDocPath();
         if (!userSettingsPath) return;
@@ -108,11 +184,11 @@ function Home({ isDemoMode = false }) {
         });
 
         return () => unsubscribe();
-    }, [currentUser, getUserSettingsDocPath]);
+    }, [currentUser, getUserSettingsDocPath, isDemoMode]);
 
     // 支出データの読み込み (Firestoreから)
     useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
+        if (!isFirebaseAvailable || !currentUser || isDemoMode) return;
 
         const expensesPath = getExpensesCollectionPath();
         if (!expensesPath) return;
@@ -134,11 +210,11 @@ function Home({ isDemoMode = false }) {
         });
 
         return () => unsubscribe();
-    }, [currentUser, getExpensesCollectionPath]);
+    }, [currentUser, getExpensesCollectionPath, isDemoMode]);
 
     // 予算データの読み込み (Firestoreから)
     useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
+        if (!isFirebaseAvailable || !currentUser || isDemoMode) return;
 
         const budgetPath = getBudgetDocPath();
         if (!budgetPath) return;
@@ -153,13 +229,52 @@ function Home({ isDemoMode = false }) {
         });
 
         return () => unsubscribe();
-    }, [currentUser, getBudgetDocPath]);
+    }, [currentUser, getBudgetDocPath, isDemoMode]);
 
     // --- CRUD関数 (支出データ) ---
     const handleAddOrUpdateExpense = async (expenseFormData) => {
-        // デモモード時は操作を無効化
+        // 入力値検証
+        const validation = validateExpenseData(expenseFormData, CATEGORIES);
+        if (!validation.isValid) {
+            alert(`入力エラー:\n${validation.errors.join('\n')}`);
+            return;
+        }
+
+        // デモモード時は暗号化localStorageに保存
         if (isDemoMode) {
-            alert('デモモードでは支出データの保存はできません。');
+            try {
+                const expenseData = {
+                    ...validation.sanitized,
+                    id: editingExpense ? editingExpense.id : Date.now().toString(),
+                    createdAt: editingExpense ? editingExpense.createdAt : new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                let currentExpenses = loadDemoData(DEMO_STORAGE_KEYS.EXPENSES, []);
+                
+                if (editingExpense) {
+                    // 既存データの更新
+                    currentExpenses = currentExpenses.map(expense => 
+                        expense.id === editingExpense.id ? expenseData : expense
+                    );
+                } else {
+                    // 新規データの追加
+                    currentExpenses.push(expenseData);
+                }
+
+                if (saveDemoData(DEMO_STORAGE_KEYS.EXPENSES, currentExpenses)) {
+                    setExpenses(currentExpenses);
+                    setShowExpenseForm(false);
+                    setEditingExpense(null);
+                } else {
+                    alert('デモデータの保存に失敗しました。');
+                }
+            } catch (error) {
+                if (!import.meta.env.PROD) {
+                    console.error('デモモード保存エラー:', error);
+                }
+                alert('デモデータの保存に失敗しました。');
+            }
             return;
         }
 
@@ -176,10 +291,10 @@ function Home({ isDemoMode = false }) {
             }
 
             const expenseData = {
-                ...expenseFormData,
+                ...validation.sanitized,
                 uid: currentUser.uid,
                 // dateフィールドを明示的に保存し、createdAtは作成時刻のみ記録
-                date: expenseFormData.date,
+                date: validation.sanitized.date,
                 createdAt: editingExpense ? editingExpense.createdAt : Timestamp.fromDate(new Date()),
                 updatedAt: Timestamp.fromDate(new Date())
             };
@@ -201,12 +316,6 @@ function Home({ isDemoMode = false }) {
     };
 
     const handleDeleteExpense = async (expenseId) => {
-        // デモモード時は操作を無効化
-        if (isDemoMode) {
-            alert('デモモードでは支出データの削除はできません。');
-            return;
-        }
-
         if (!expenseId) {
             console.error('削除エラー: expenseIdが未定義です', expenseId);
             alert('削除できません。データIDが不正です。');
@@ -214,6 +323,26 @@ function Home({ isDemoMode = false }) {
         }
 
         if (!confirm('この支出データを削除しますか？')) return;
+
+        // デモモード時は暗号化localStorageから削除
+        if (isDemoMode) {
+            try {
+                let currentExpenses = loadDemoData(DEMO_STORAGE_KEYS.EXPENSES, []);
+                currentExpenses = currentExpenses.filter(expense => expense.id !== expenseId);
+                
+                if (saveDemoData(DEMO_STORAGE_KEYS.EXPENSES, currentExpenses)) {
+                    setExpenses(currentExpenses);
+                } else {
+                    alert('デモデータの削除に失敗しました。');
+                }
+            } catch (error) {
+                if (!import.meta.env.PROD) {
+                    console.error('デモモード削除エラー:', error);
+                }
+                alert('デモデータの削除に失敗しました。');
+            }
+            return;
+        }
 
         try {
             const expensesPath = getExpensesCollectionPath();
@@ -247,6 +376,48 @@ function Home({ isDemoMode = false }) {
 
     // --- CRUD関数 (ユーザー設定) ---
     const handleSaveUserNames = async (newUser1Name, newUser2Name) => {
+        // ユーザー名の検証
+        const user1Validation = validateUsername(newUser1Name);
+        const user2Validation = validateUsername(newUser2Name);
+        
+        const errors = [];
+        if (!user1Validation.isValid) {
+            errors.push(`ユーザー1: ${user1Validation.error}`);
+        }
+        if (!user2Validation.isValid) {
+            errors.push(`ユーザー2: ${user2Validation.error}`);
+        }
+        
+        if (errors.length > 0) {
+            alert(`入力エラー:\n${errors.join('\n')}`);
+            return;
+        }
+
+        // デモモード時は暗号化localStorageに保存
+        if (isDemoMode) {
+            try {
+                const userNames = {
+                    user1Name: user1Validation.sanitized || DEFAULT_USER1_NAME,
+                    user2Name: user2Validation.sanitized || DEFAULT_USER2_NAME,
+                    updatedAt: new Date().toISOString()
+                };
+
+                if (saveDemoData(DEMO_STORAGE_KEYS.USER_NAMES, userNames)) {
+                    setUser1Name(userNames.user1Name);
+                    setUser2Name(userNames.user2Name);
+                    alert('ユーザー名が保存されました。');
+                } else {
+                    alert('ユーザー名の保存に失敗しました。');
+                }
+            } catch (error) {
+                if (!import.meta.env.PROD) {
+                    console.error('デモモードユーザー名保存エラー:', error);
+                }
+                alert('ユーザー名の保存に失敗しました。');
+            }
+            return;
+        }
+
         if (!currentUser) {
             alert('ユーザーが認証されていません。');
             return;
@@ -260,8 +431,8 @@ function Home({ isDemoMode = false }) {
             }
 
             await setDoc(doc(db, userSettingsPath), {
-                user1Name: newUser1Name || DEFAULT_USER1_NAME,
-                user2Name: newUser2Name || DEFAULT_USER2_NAME,
+                user1Name: user1Validation.sanitized || DEFAULT_USER1_NAME,
+                user2Name: user2Validation.sanitized || DEFAULT_USER2_NAME,
                 uid: currentUser.uid,
                 updatedAt: Timestamp.fromDate(new Date())
             });

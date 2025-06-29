@@ -1,28 +1,52 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 認証されたユーザーが自分のデータのみアクセス可能
+    // ヘルパー関数
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function hasValidUid() {
+      return request.data.uid == request.auth.uid;
+    }
+    
+    function isOwnerOfResource() {
+      return resource == null || resource.data.uid == request.auth.uid;
+    }
+    
+    // メイン認証ルール
     match /artifacts/{appId}/users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && 
-                          request.auth.uid == userId &&
-                          (resource == null || !resource.data.keys().hasAny(['uid']) || resource.data.uid == request.auth.uid) &&
-                          (request.data == null || !request.data.keys().hasAny(['uid']) || request.data.uid == request.auth.uid);
+      allow read, write: if isAuthenticated() && 
+                          isOwner(userId) &&
+                          isOwnerOfResource() &&
+                          (request.data == null || hasValidUid());
     }
     
-    // 支出データ専用ルール
+    // 支出データのルール（明示的）
     match /artifacts/{appId}/users/{userId}/expenses/{expenseId} {
-      allow read, write: if request.auth != null && 
-                          request.auth.uid == userId &&
-                          (resource == null || resource.data.uid == request.auth.uid) &&
-                          request.data.uid == request.auth.uid;
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId) && hasValidUid();
+      allow update: if isAuthenticated() && isOwner(userId) && 
+                      isOwnerOfResource() && hasValidUid();
+      allow delete: if isAuthenticated() && isOwner(userId) && isOwnerOfResource();
     }
     
-    // 設定データ専用ルール
+    // 設定データのルール（明示的）
     match /artifacts/{appId}/users/{userId}/settings/{settingId} {
-      allow read, write: if request.auth != null && 
-                          request.auth.uid == userId &&
-                          (resource == null || resource.data.uid == request.auth.uid) &&
-                          request.data.uid == request.auth.uid;
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId) && hasValidUid();
+      allow update: if isAuthenticated() && isOwner(userId) && 
+                      isOwnerOfResource() && hasValidUid();
+      allow delete: if isAuthenticated() && isOwner(userId) && isOwnerOfResource();
+    }
+    
+    // 他のすべてのドキュメントへのアクセスを拒否
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
