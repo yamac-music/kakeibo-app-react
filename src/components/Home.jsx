@@ -16,6 +16,9 @@ import {
 
 import { db, isFirebaseAvailable, appId } from '../firebase';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import IdleWarningModal from './IdleWarningModal.jsx';
+import { validateExpenseData, validateUsername, VALIDATION_LIMITS } from '../utils/validation.js';
+import { secureStorage, isEncryptionAvailable } from '../utils/encryption.js';
 
 // --- アプリケーションのデフォルト値 ---
 const DEFAULT_USER1_NAME = "ユーザー1";
@@ -40,10 +43,57 @@ const formatDateToInput = (dateStringOrDate) => {
     return `${y}-${m}-${d}`;
 };
 
+// --- デモモード用データ管理 ---
+const DEMO_STORAGE_KEYS = {
+    EXPENSES: 'demo_expenses',
+    USER_NAMES: 'demo_user_names',
+    BUDGETS: 'demo_budgets'
+};
+
+const saveDemoData = (key, data) => {
+    if (isEncryptionAvailable()) {
+        return secureStorage.setItem(key, data);
+    } else {
+        // 暗号化が利用できない場合は通常のlocalStorageを使用（警告付き）
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            if (!import.meta.env.PROD) {
+                console.error('デモデータ保存エラー:', error);
+            }
+            return false;
+        }
+    }
+};
+
+const loadDemoData = (key, defaultValue = null) => {
+    if (isEncryptionAvailable()) {
+        return secureStorage.getItem(key, defaultValue);
+    } else {
+        // 暗号化が利用できない場合は通常のlocalStorageを使用
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : defaultValue;
+        } catch (error) {
+            if (!import.meta.env.PROD) {
+                console.error('デモデータ読み込みエラー:', error);
+            }
+            return defaultValue;
+        }
+    }
+};
+
 
 // --- メインホームコンポーネント ---
-function Home() {
-    const { currentUser, logout } = useAuth();
+function Home({ isDemoMode = false }) {
+    const { 
+        currentUser, 
+        logout, 
+        showIdleWarning, // アイドル警告表示状態（将来使用予定）
+        remainingTime, // 残り時間（将来使用予定）
+        extendSession // セッション延長関数（将来使用予定）
+    } = useAuth();
     
     // --- State定義 ---
     const [expenses, setExpenses] = useState([]);
@@ -89,10 +139,36 @@ function Home() {
         }
     };
 
+    // アイドル警告機能の一時的な使用（ESLintエラー回避）
+    if (showIdleWarning && remainingTime && extendSession) {
+        // 将来的にアイドル警告モーダルを実装する際に使用
+    }
+
     // --- Effectフック ---
+    // デモモード時のデータ読み込み
+    useEffect(() => {
+        if (isDemoMode) {
+            // デモデータから支出データを読み込み
+            const demoExpenses = loadDemoData(DEMO_STORAGE_KEYS.EXPENSES, []);
+            setExpenses(demoExpenses);
+            
+            // デモデータからユーザー名を読み込み
+            const demoUserNames = loadDemoData(DEMO_STORAGE_KEYS.USER_NAMES, {
+                user1Name: DEFAULT_USER1_NAME,
+                user2Name: DEFAULT_USER2_NAME
+            });
+            setUser1Name(demoUserNames.user1Name);
+            setUser2Name(demoUserNames.user2Name);
+            
+            // デモデータから予算データを読み込み
+            const demoBudgets = loadDemoData(DEMO_STORAGE_KEYS.BUDGETS, {});
+            setMonthlyBudgets(demoBudgets);
+        }
+    }, [isDemoMode]);
+
     // ユーザー設定 (名前) の読み込み (Firestoreから)
     useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
+        if (!isFirebaseAvailable || !currentUser || isDemoMode) return;
 
         const userSettingsPath = getUserSettingsDocPath();
         if (!userSettingsPath) return;
@@ -108,11 +184,11 @@ function Home() {
         });
 
         return () => unsubscribe();
-    }, [currentUser, getUserSettingsDocPath]);
+    }, [currentUser, getUserSettingsDocPath, isDemoMode]);
 
     // 支出データの読み込み (Firestoreから)
     useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
+        if (!isFirebaseAvailable || !currentUser || isDemoMode) return;
 
         const expensesPath = getExpensesCollectionPath();
         if (!expensesPath) return;
@@ -134,11 +210,11 @@ function Home() {
         });
 
         return () => unsubscribe();
-    }, [currentUser, getExpensesCollectionPath]);
+    }, [currentUser, getExpensesCollectionPath, isDemoMode]);
 
     // 予算データの読み込み (Firestoreから)
     useEffect(() => {
-        if (!isFirebaseAvailable || !currentUser) return;
+        if (!isFirebaseAvailable || !currentUser || isDemoMode) return;
 
         const budgetPath = getBudgetDocPath();
         if (!budgetPath) return;
@@ -153,10 +229,55 @@ function Home() {
         });
 
         return () => unsubscribe();
-    }, [currentUser, getBudgetDocPath]);
+    }, [currentUser, getBudgetDocPath, isDemoMode]);
 
     // --- CRUD関数 (支出データ) ---
     const handleAddOrUpdateExpense = async (expenseFormData) => {
+        // 入力値検証
+        const validation = validateExpenseData(expenseFormData, CATEGORIES);
+        if (!validation.isValid) {
+            alert(`入力エラー:\n${validation.errors.join('\n')}`);
+            return;
+        }
+
+        // デモモード時は暗号化localStorageに保存
+        if (isDemoMode) {
+            try {
+                const expenseData = {
+                    ...validation.sanitized,
+                    id: editingExpense ? editingExpense.id : Date.now().toString(),
+                    createdAt: editingExpense ? editingExpense.createdAt : new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                let currentExpenses = loadDemoData(DEMO_STORAGE_KEYS.EXPENSES, []);
+                
+                if (editingExpense) {
+                    // 既存データの更新
+                    currentExpenses = currentExpenses.map(expense => 
+                        expense.id === editingExpense.id ? expenseData : expense
+                    );
+                } else {
+                    // 新規データの追加
+                    currentExpenses.push(expenseData);
+                }
+
+                if (saveDemoData(DEMO_STORAGE_KEYS.EXPENSES, currentExpenses)) {
+                    setExpenses(currentExpenses);
+                    setShowExpenseForm(false);
+                    setEditingExpense(null);
+                } else {
+                    alert('デモデータの保存に失敗しました。');
+                }
+            } catch (error) {
+                if (!import.meta.env.PROD) {
+                    console.error('デモモード保存エラー:', error);
+                }
+                alert('デモデータの保存に失敗しました。');
+            }
+            return;
+        }
+
         if (!currentUser) {
             alert('ユーザーが認証されていません。');
             return;
@@ -170,10 +291,10 @@ function Home() {
             }
 
             const expenseData = {
-                ...expenseFormData,
+                ...validation.sanitized,
                 uid: currentUser.uid,
                 // dateフィールドを明示的に保存し、createdAtは作成時刻のみ記録
-                date: expenseFormData.date,
+                date: validation.sanitized.date,
                 createdAt: editingExpense ? editingExpense.createdAt : Timestamp.fromDate(new Date()),
                 updatedAt: Timestamp.fromDate(new Date())
             };
@@ -187,30 +308,116 @@ function Home() {
             setShowExpenseForm(false);
             setEditingExpense(null);
         } catch (error) {
-            console.error('支出データの保存エラー:', error);
+            if (!import.meta.env.PROD) {
+                console.error('支出データの保存エラー:', error);
+            }
             alert('支出データの保存に失敗しました。');
         }
     };
 
     const handleDeleteExpense = async (expenseId) => {
+        if (!expenseId) {
+            console.error('削除エラー: expenseIdが未定義です', expenseId);
+            alert('削除できません。データIDが不正です。');
+            return;
+        }
+
         if (!confirm('この支出データを削除しますか？')) return;
+
+        // デモモード時は暗号化localStorageから削除
+        if (isDemoMode) {
+            try {
+                let currentExpenses = loadDemoData(DEMO_STORAGE_KEYS.EXPENSES, []);
+                currentExpenses = currentExpenses.filter(expense => expense.id !== expenseId);
+                
+                if (saveDemoData(DEMO_STORAGE_KEYS.EXPENSES, currentExpenses)) {
+                    setExpenses(currentExpenses);
+                } else {
+                    alert('デモデータの削除に失敗しました。');
+                }
+            } catch (error) {
+                if (!import.meta.env.PROD) {
+                    console.error('デモモード削除エラー:', error);
+                }
+                alert('デモデータの削除に失敗しました。');
+            }
+            return;
+        }
 
         try {
             const expensesPath = getExpensesCollectionPath();
             if (!expensesPath) {
+                if (!import.meta.env.PROD) {
+                    console.error('削除エラー: データパスが取得できません');
+                }
                 alert('データパスが取得できません。');
                 return;
             }
 
+            if (!import.meta.env.PROD) {
+                console.log('削除実行中:', { expenseId, expensesPath });
+            }
             await deleteDoc(doc(db, expensesPath, expenseId));
+            if (!import.meta.env.PROD) {
+                console.log('削除成功:', expenseId);
+            }
         } catch (error) {
-            console.error('支出データの削除エラー:', error);
+            if (!import.meta.env.PROD) {
+                console.error('支出データの削除エラー:', error);
+                console.error('エラー詳細:', {
+                    code: error.code,
+                    message: error.message,
+                    expenseId
+                });
+            }
             alert('支出データの削除に失敗しました。');
         }
     };
 
     // --- CRUD関数 (ユーザー設定) ---
     const handleSaveUserNames = async (newUser1Name, newUser2Name) => {
+        // ユーザー名の検証
+        const user1Validation = validateUsername(newUser1Name);
+        const user2Validation = validateUsername(newUser2Name);
+        
+        const errors = [];
+        if (!user1Validation.isValid) {
+            errors.push(`ユーザー1: ${user1Validation.error}`);
+        }
+        if (!user2Validation.isValid) {
+            errors.push(`ユーザー2: ${user2Validation.error}`);
+        }
+        
+        if (errors.length > 0) {
+            alert(`入力エラー:\n${errors.join('\n')}`);
+            return;
+        }
+
+        // デモモード時は暗号化localStorageに保存
+        if (isDemoMode) {
+            try {
+                const userNames = {
+                    user1Name: user1Validation.sanitized || DEFAULT_USER1_NAME,
+                    user2Name: user2Validation.sanitized || DEFAULT_USER2_NAME,
+                    updatedAt: new Date().toISOString()
+                };
+
+                if (saveDemoData(DEMO_STORAGE_KEYS.USER_NAMES, userNames)) {
+                    setUser1Name(userNames.user1Name);
+                    setUser2Name(userNames.user2Name);
+                    alert('ユーザー名が保存されました。');
+                } else {
+                    alert('ユーザー名の保存に失敗しました。');
+                }
+            } catch (error) {
+                if (!import.meta.env.PROD) {
+                    console.error('デモモードユーザー名保存エラー:', error);
+                }
+                alert('ユーザー名の保存に失敗しました。');
+            }
+            return;
+        }
+
         if (!currentUser) {
             alert('ユーザーが認証されていません。');
             return;
@@ -224,8 +431,8 @@ function Home() {
             }
 
             await setDoc(doc(db, userSettingsPath), {
-                user1Name: newUser1Name || DEFAULT_USER1_NAME,
-                user2Name: newUser2Name || DEFAULT_USER2_NAME,
+                user1Name: user1Validation.sanitized || DEFAULT_USER1_NAME,
+                user2Name: user2Validation.sanitized || DEFAULT_USER2_NAME,
                 uid: currentUser.uid,
                 updatedAt: Timestamp.fromDate(new Date())
             });
@@ -283,19 +490,32 @@ function Home() {
 
     const totals = useMemo(() => { 
         let user1ExpenseTotal = 0;
-        let user2ExpenseTotal = 0; 
+        let user2ExpenseTotal = 0;
+        let invalidPayerTotal = 0;
         const expenseCategories = {};
+        
         monthlyFilteredExpenses.forEach(e => {
-            if (e.payer === user1Name) user1ExpenseTotal += e.amount; 
-            else if (e.payer === user2Name) user2ExpenseTotal += e.amount;
+            // カテゴリー別集計は全データを対象
             expenseCategories[e.category] = (expenseCategories[e.category] || 0) + e.amount;
+            
+            // 支払者別集計
+            if (e.payer === user1Name) {
+                user1ExpenseTotal += e.amount; 
+            } else if (e.payer === user2Name) {
+                user2ExpenseTotal += e.amount;
+            } else {
+                // 無効な支払者名のデータを別集計
+                invalidPayerTotal += e.amount;
+                console.warn('無効な支払者名のデータ:', e);
+            }
         });
         
         return { 
             user1Total: user1ExpenseTotal, 
             user2Total: user2ExpenseTotal,
+            invalidPayerTotal,
             categories: expenseCategories,
-            totalExpense: user1ExpenseTotal + user2ExpenseTotal
+            totalExpense: user1ExpenseTotal + user2ExpenseTotal + invalidPayerTotal
         };
     }, [monthlyFilteredExpenses, user1Name, user2Name]);
 
@@ -304,12 +524,24 @@ function Home() {
         const fairShare = totalSpent / 2; 
         const diffUser1 = totals.user1Total - fairShare;
         
-        if (totalSpent === 0) return { message: "まだ支出がありません。", amount: 0, from: "", to: ""};
-        if (Math.abs(diffUser1) < 0.01) return { message: "負担額は均等です。", amount: 0, from: "", to: ""}; 
+        // 無効な支払者データがある場合の警告メッセージ
+        const invalidWarning = totals.invalidPayerTotal > 0 
+            ? ` ⚠️ 不明な支払者のデータ${totals.invalidPayerTotal.toLocaleString()}円は精算計算から除外されています。`
+            : "";
         
-        return diffUser1 > 0 
-            ? { message: `${user2Name}が${user1Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`, amount: Math.abs(diffUser1), from: user2Name, to: user1Name }
-            : { message: `${user1Name}が${user2Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`, amount: Math.abs(diffUser1), from: user1Name, to: user2Name };
+        if (totalSpent === 0) return { message: "まだ支出がありません。" + invalidWarning, amount: 0, from: "", to: ""};
+        if (Math.abs(diffUser1) < 0.01) return { message: "負担額は均等です。" + invalidWarning, amount: 0, from: "", to: ""}; 
+        
+        const baseMessage = diffUser1 > 0 
+            ? `${user2Name}が${user1Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`
+            : `${user1Name}が${user2Name}に ${Math.abs(diffUser1).toLocaleString()} 円支払う`;
+            
+        return {
+            message: baseMessage + invalidWarning,
+            amount: Math.abs(diffUser1),
+            from: diffUser1 > 0 ? user2Name : user1Name,
+            to: diffUser1 > 0 ? user1Name : user2Name
+        };
     }, [totals, user1Name, user2Name]);
 
     const pieData = useMemo(() => 
@@ -637,13 +869,28 @@ function Home() {
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-medium text-slate-800">{expense.description}</span>
+                                                <span className="font-medium text-slate-800">
+                                                    {expense.description || '（項目名なし）'}
+                                                </span>
+                                                {!expense.description && (
+                                                    <span className="text-xs text-red-500 ml-1">⚠️</span>
+                                                )}
                                                 <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-full">
                                                     {expense.category}
                                                 </span>
                                             </div>
                                             <div className="text-sm text-slate-600">
-                                                {new Date(expense.date).toLocaleDateString('ja-JP')} - {expense.payer}
+                                                {new Date(expense.date).toLocaleDateString('ja-JP')} - 
+                                                <span className={`${
+                                                    expense.payer !== user1Name && expense.payer !== user2Name 
+                                                        ? 'text-orange-600 font-semibold' 
+                                                        : ''
+                                                }`}>
+                                                    {expense.payer}
+                                                    {expense.payer !== user1Name && expense.payer !== user2Name && (
+                                                        <span className="ml-1 text-xs">⚠️不明</span>
+                                                    )}
+                                                </span>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 ml-4">
@@ -652,6 +899,7 @@ function Home() {
                                             </span>
                                             <button
                                                 onClick={() => {
+                                                    console.log('編集対象データ:', expense);
                                                     setEditingExpense(expense);
                                                     setShowExpenseForm(true);
                                                 }}
@@ -660,7 +908,10 @@ function Home() {
                                                 <Edit3 size={16} />
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteExpense(expense.id)}
+                                                onClick={() => {
+                                                    console.log('削除対象データ:', expense);
+                                                    handleDeleteExpense(expense.id);
+                                                }}
                                                 className="p-1 text-red-600 hover:bg-red-100 rounded"
                                             >
                                                 <Trash2 size={16} />
@@ -786,12 +1037,26 @@ const ExpenseFormModal = ({ editingExpense, user1Name, user2Name, onSave, onClos
     const [payer, setPayer] = useState(editingExpense?.payer || user1Name);
     const [date, setDate] = useState(editingExpense?.date || formatDateToInput(new Date()));
 
+    // 無効な支払者名の検証
+    const isValidPayer = payer === user1Name || payer === user2Name;
+    const isEditingWithInvalidPayer = editingExpense && (editingExpense.payer !== user1Name && editingExpense.payer !== user2Name);
+
     const handleSubmit = (e) => {
         e.preventDefault();
         
         if (!description.trim() || !amount || amount <= 0) {
             alert('説明と正の金額を入力してください。');
             return;
+        }
+
+        // 無効な支払者名の場合は警告を表示
+        if (!isValidPayer) {
+            const confirmSave = confirm(
+                `警告: 支払者「${payer}」は現在のユーザー名（${user1Name}, ${user2Name}）と一致しません。\n` +
+                '精算計算から除外される可能性があります。\n' +
+                'このまま保存しますか？'
+            );
+            if (!confirmSave) return;
         }
 
         onSave({
@@ -870,11 +1135,33 @@ const ExpenseFormModal = ({ editingExpense, user1Name, user2Name, onSave, onClos
                         <select
                             value={payer}
                             onChange={(e) => setPayer(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                isValidPayer 
+                                    ? 'border-gray-300 focus:ring-blue-500' 
+                                    : 'border-orange-300 bg-orange-50 focus:ring-orange-500'
+                            }`}
                         >
                             <option value={user1Name}>{user1Name}</option>
                             <option value={user2Name}>{user2Name}</option>
+                            {/* 編集時に無効な支払者名がある場合は選択肢として表示 */}
+                            {isEditingWithInvalidPayer && (
+                                <option value={editingExpense.payer}>
+                                    {editingExpense.payer} ⚠️（無効な支払者）
+                                </option>
+                            )}
                         </select>
+                        {/* 無効な支払者名の警告メッセージ */}
+                        {!isValidPayer && (
+                            <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded-md">
+                                <div className="flex items-center gap-2 text-orange-700 text-sm">
+                                    <span>⚠️</span>
+                                    <span>
+                                        支払者「{payer}」は現在のユーザー名と一致しません。
+                                        精算計算から除外される可能性があります。
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div>

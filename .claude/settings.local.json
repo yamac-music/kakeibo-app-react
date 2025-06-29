@@ -27,7 +27,10 @@
       "Bash(rm:*)",
       "Bash(npx eslint:*)",
       "Bash(grep:*)",
-      "Bash(npm run preview:*)"
+      "Bash(npm run preview:*)",
+      "Bash(npm run test:run:*)",
+      "Bash(git checkout:*)",
+      "Bash(awk:*)"
     ],
     "deny": []
   }
