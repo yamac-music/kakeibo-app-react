@@ -4,25 +4,34 @@ import { getFirestore } from 'firebase/firestore';
 
 // Firebase設定の検証
 const validateFirebaseConfig = (config) => {
-    console.log('🔍 Firebase設定を検証中...', {
-        hasApiKey: !!config.apiKey,
-        hasAuthDomain: !!config.authDomain,
-        hasProjectId: !!config.projectId,
-        hasStorageBucket: !!config.storageBucket,
-        hasMessagingSenderId: !!config.messagingSenderId,
-        hasAppId: !!config.appId,
-        projectId: config.projectId || 'undefined'
-    });
+    // 本番環境では詳細なログを出力しない
+    const isProduction = import.meta.env.PROD;
+    
+    if (!isProduction) {
+        console.log('🔍 Firebase設定を検証中...', {
+            hasApiKey: !!config.apiKey,
+            hasAuthDomain: !!config.authDomain,
+            hasProjectId: !!config.projectId,
+            hasStorageBucket: !!config.storageBucket,
+            hasMessagingSenderId: !!config.messagingSenderId,
+            hasAppId: !!config.appId
+        });
+    }
 
     const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
     const missingFields = requiredFields.filter(field => !config[field] || config[field] === 'undefined');
     
     if (missingFields.length > 0) {
-        console.warn('⚠️ Firebase設定が不完全です。以下のフィールドが不足しています:', missingFields);
-        console.warn('環境変数を確認してください:', missingFields.map(field => `VITE_FIREBASE_${field.replace(/([A-Z])/g, '_$1').toUpperCase()}`));
+        if (!isProduction) {
+            console.warn('⚠️ Firebase設定が不完全です。以下のフィールドが不足しています:', missingFields);
+            console.warn('環境変数を確認してください:', missingFields.map(field => `VITE_FIREBASE_${field.replace(/([A-Z])/g, '_$1').toUpperCase()}`));
+        }
         return false;
     }
-    console.log('✅ Firebase設定が正常です');
+    
+    if (!isProduction) {
+        console.log('✅ Firebase設定が正常です');
+    }
     return true;
 };
 
@@ -51,13 +60,19 @@ if (isFirebaseConfigured) {
         auth = getAuth(firebaseApp);
         db = getFirestore(firebaseApp);
         isFirebaseAvailable = true;
-        console.log('Firebase初期化が完了しました');
+        if (!import.meta.env.PROD) {
+            console.log('Firebase初期化が完了しました');
+        }
     } catch (error) {
-        console.error('Firebase初期化エラー:', error);
+        if (!import.meta.env.PROD) {
+            console.error('Firebase初期化エラー:', error);
+        }
         isFirebaseAvailable = false;
     }
 } else {
-    console.warn('Firebase設定がないため、ローカルストレージモードで動作します');
+    if (!import.meta.env.PROD) {
+        console.warn('Firebase設定がないため、ローカルストレージモードで動作します');
+    }
 }
 
 export { auth, db, isFirebaseAvailable, appId };

@@ -35,6 +35,6 @@ describe('App', () => {
     // 機能リストの確認（実際のホームコンポーネントの要素を確認）
     expect(screen.getByText(/二人暮らしの家計簿/)).toBeInTheDocument()
     expect(screen.getByText(/目標/)).toBeInTheDocument()
-    expect(screen.getByText(/設定/)).toBeInTheDocument()
+    expect(screen.getAllByText(/設定/)[0]).toBeInTheDocument()
   })
 })
