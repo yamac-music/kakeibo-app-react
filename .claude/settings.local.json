@@ -30,7 +30,9 @@
       "Bash(npm run preview:*)",
       "Bash(npm run test:run:*)",
       "Bash(git checkout:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(gh pr create:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
