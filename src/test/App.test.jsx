@@ -13,16 +13,16 @@ const TestWrapper = ({ children }) => (
 )
 
 describe('App', () => {
-  it('Firebase未設定時にホームコンポーネントが表示される', () => {
+  it('Firebase未設定時にランディングページが表示される', () => {
     render(
       <TestWrapper>
         <App />
       </TestWrapper>
     )
     
-    // デモモードの表示を確認
-    expect(screen.getByText(/二人暮らしの家計簿/)).toBeInTheDocument()
-    expect(screen.getByText(/ゲストユーザー/)).toBeInTheDocument()
+    // ランディングページの表示を確認
+    expect(screen.getAllByText(/Futakake/)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/二人の家計管理/)[0]).toBeInTheDocument()
   })
 
   it('主な機能リストが表示される', () => {
@@ -32,9 +32,9 @@ describe('App', () => {
       </TestWrapper>
     )
     
-    // 機能リストの確認（実際のホームコンポーネントの要素を確認）
-    expect(screen.getByText(/二人暮らしの家計簿/)).toBeInTheDocument()
-    expect(screen.getByText(/目標/)).toBeInTheDocument()
-    expect(screen.getAllByText(/設定/)[0]).toBeInTheDocument()
+    // 機能リストの確認（実際のランディングページの要素を確認）
+    expect(screen.getAllByText(/Futakake/)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/無料で始める/)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/デモを試す/)[0]).toBeInTheDocument()
   })
 })

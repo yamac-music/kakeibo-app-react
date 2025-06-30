@@ -17,8 +17,8 @@
     <meta name="msapplication-TileColor" content="#10b981" />
     
     <!-- App Meta -->
-    <meta name="application-name" content="二人暮らしの家計簿" />
-    <meta name="apple-mobile-web-app-title" content="家計簿" />
+    <meta name="application-name" content="Futakake" />
+    <meta name="apple-mobile-web-app-title" content="Futakake" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -49,23 +49,23 @@
       manifest-src 'self'
     " />
     
-    <title>二人暮らしの家計簿 - カップル・夫婦で使える家計管理アプリ</title>
+    <title>Futakake - カップル・夫婦で使える家計管理アプリ</title>
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="カップル・夫婦で使える家計簿アプリ。シンプルな操作で続けられる、二人専用の家計管理ツールです。リアルタイム同期で支出を共有し、自動精算で月末の計算も簡単。" />
     <meta name="keywords" content="家計簿,カップル,夫婦,二人暮らし,家計管理,支出管理,精算,共有,アプリ" />
-    <meta name="author" content="二人暮らしの家計簿" />
+    <meta name="author" content="Futakake" />
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://yamac-music.github.io/kakeibo-app-react/" />
-    <meta property="og:title" content="二人暮らしの家計簿 - カップル・夫婦で使える家計管理アプリ" />
+    <meta property="og:title" content="Futakake - カップル・夫婦で使える家計管理アプリ" />
     <meta property="og:description" content="カップル・夫婦で使える家計簿アプリ。シンプルな操作で続けられる、二人専用の家計管理ツールです。" />
     <meta property="og:image" content="https://yamac-music.github.io/kakeibo-app-react/icon-512.svg" />
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:title" content="二人暮らしの家計簿 - カップル・夫婦で使える家計管理アプリ" />
+    <meta property="twitter:title" content="Futakake - カップル・夫婦で使える家計管理アプリ" />
     <meta property="twitter:description" content="カップル・夫婦で使える家計簿アプリ。シンプルな操作で続けられる、二人専用の家計管理ツールです。" />
     <meta property="twitter:image" content="https://yamac-music.github.io/kakeibo-app-react/icon-512.svg" />
   </head>
@@ -73,21 +73,24 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     
-    <!-- GitHub Pages SPA redirect script -->
+    <!-- GitHub Pages SPA redirect script (production only) -->
     <script type="text/javascript">
-      (function(l) {
-        if (l.search && l.search[1] === '/' ) {
-          var decoded = l.search.slice(1).split('&').map(function(s) { 
-            return s.replace(/~and~/g, '&')
-          }).join('?');
-          // For GitHub Pages with base path, ensure correct routing
-          var basePath = '/kakeibo-app-react';
-          var targetPath = decoded.startsWith('?/') ? decoded.slice(2) : decoded.slice(1);
-          window.history.replaceState(null, null,
-              basePath + '/' + targetPath + l.hash
-          );
-        }
-      }(window.location))
+      // Only run on GitHub Pages (production)
+      if (window.location.hostname === 'yamac-music.github.io') {
+        (function(l) {
+          if (l.search && l.search[1] === '/' ) {
+            var decoded = l.search.slice(1).split('&').map(function(s) { 
+              return s.replace(/~and~/g, '&')
+            }).join('?');
+            // For GitHub Pages with base path, ensure correct routing
+            var basePath = '/kakeibo-app-react';
+            var targetPath = decoded.startsWith('?/') ? decoded.slice(2) : decoded.slice(1);
+            window.history.replaceState(null, null,
+                basePath + '/' + targetPath + l.hash
+            );
+          }
+        }(window.location))
+      }
     </script>
   </body>
 </html>

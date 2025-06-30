@@ -1,6 +1,6 @@
 {
-  "name": "二人暮らしの家計簿",
-  "short_name": "家計簿",
+  "name": "Futakake",
+  "short_name": "Futakake",
   "description": "カップル・夫婦で使える家計簿アプリ。シンプルな操作で続けられます。",
   "start_url": "/",
   "display": "standalone",
