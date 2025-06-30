@@ -100,7 +100,7 @@ const LandingPage = () => {
                             <span className="text-emerald-600">かんたんに</span>
                         </h1>
                         <p className="text-xl text-slate-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-                            カップル・夫婦で使える家計簿アプリ。<br className="hidden sm:block" />
+                            カップル・夫婦で使える家計簿アプリ。<br className="hidden sm:block" /><br />
                             シンプルな操作で続けられます。
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -141,10 +141,12 @@ const LandingPage = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
-                            たった3ステップで始められます
+                            たった3ステップで<br />
+                            始められます
                         </h2>
                         <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                            面倒な設定は一切不要。今すぐ家計管理を始めましょう
+                            面倒な設定は一切不要。<br />
+                            今すぐ家計管理を始めましょう
                         </p>
                     </div>
 
@@ -155,8 +157,8 @@ const LandingPage = () => {
                             </div>
                             <h3 className="text-xl font-semibold text-slate-900 mb-4">アカウント作成</h3>
                             <p className="text-slate-600">
-                                メールアドレスだけで30秒で登録完了。
-                                パートナーを招待してすぐに共有開始。
+                                メールアドレスだけで30秒で登録完了。<br />
+                                パートナーと一緒に家計管理を開始。
                             </p>
                         </div>
 
@@ -166,7 +168,7 @@ const LandingPage = () => {
                             </div>
                             <h3 className="text-xl font-semibold text-slate-900 mb-4">支出を記録</h3>
                             <p className="text-slate-600">
-                                買い物後にサッと入力するだけ。
+                                買い物後にサッと入力するだけ。<br />
                                 カテゴリと支払い者を選んで完了。
                             </p>
                         </div>
@@ -177,7 +179,7 @@ const LandingPage = () => {
                             </div>
                             <h3 className="text-xl font-semibold text-slate-900 mb-4">自動で分析・精算</h3>
                             <p className="text-slate-600">
-                                グラフで支出傾向を確認。
+                                グラフで支出傾向を確認。<br />
                                 月末の精算額も自動計算されます。
                             </p>
                         </div>
@@ -193,7 +195,8 @@ const LandingPage = () => {
                             なぜ選ばれるのか
                         </h2>
                         <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                            二人暮らしに特化した、シンプルで続けやすい家計簿
+                            二人暮らしに特化した<br />
+                            シンプルで続けやすい家計簿
                         </p>
                     </div>
 
@@ -206,7 +209,7 @@ const LandingPage = () => {
                                 かんたん操作
                             </h3>
                             <p className="text-slate-600">
-                                3タップで支出記録完了。
+                                3タップで支出記録完了。<br />
                                 複雑な設定は一切不要です。
                             </p>
                         </div>
@@ -219,7 +222,7 @@ const LandingPage = () => {
                                 二人で共有
                             </h3>
                             <p className="text-slate-600">
-                                データ共有で
+                                データ共有で<br />
                                 お互いの支出を管理。
                             </p>
                         </div>
@@ -232,7 +235,7 @@ const LandingPage = () => {
                                 自動で分析
                             </h3>
                             <p className="text-slate-600">
-                                グラフで支出を可視化。
+                                グラフで支出を可視化。<br />
                                 月末の精算も自動計算。
                             </p>
                         </div>
@@ -254,8 +257,8 @@ const LandingPage = () => {
                             まずはデモをお試しください
                         </h2>
                         <p className="text-xl text-emerald-100 max-w-2xl mx-auto mb-8">
-                            登録不要でデモ版をお試しいただけます。<br />
-                            実際の操作感を今すぐ体験してみてください。
+                            登録不要でデモ版をお試し可能。<br />
+                            実際の操作感を体験してみてください。
                         </p>
                         <Link 
                             to="/app?demo=true" 
@@ -278,7 +281,8 @@ const LandingPage = () => {
                         今すぐ始めませんか？
                     </h2>
                     <p className="text-xl text-slate-600 mb-8">
-                        無料でアカウントを作成して、二人の家計管理を始めましょう。
+                        無料でアカウントを作成して、<br />
+                        二人の家計管理を始めましょう。
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                         <Link 
