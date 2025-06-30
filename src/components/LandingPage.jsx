@@ -96,12 +96,12 @@ const LandingPage = () => {
                             </span>
                         </div>
                         <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 mb-6 leading-tight">
-                            家計簿も資産管理も<br />
-                            <span className="text-emerald-600">これひとつ</span>
+                            二人の家計管理が<br />
+                            <span className="text-emerald-600">かんたんに</span>
                         </h1>
                         <p className="text-xl text-slate-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-                            「面倒」を「一瞬」に変える、カップル・夫婦のための家計管理アプリ。<br className="hidden sm:block" />
-                            お金の管理がもっとシンプルに、もっと楽しくなります。
+                            カップル・夫婦で使える家計簿アプリ。<br className="hidden sm:block" />
+                            シンプルな操作で続けられます。
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                             <Link to="/signup" className="bg-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1">
@@ -119,87 +119,20 @@ const LandingPage = () => {
                         {/* Trust Indicators */}
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-slate-600">
                             <div className="flex items-center gap-2">
-                                <Shield className="w-5 h-5 text-emerald-600" />
-                                <span>銀行レベルのセキュリティ</span>
-                            </div>
-                            <div className="flex items-center gap-2">
                                 <Heart className="w-5 h-5 text-emerald-600" />
-                                <span>完全無料で利用可能</span>
+                                <span>完全無料</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Clock className="w-5 h-5 text-emerald-600" />
-                                <span>30秒で登録完了</span>
+                                <span>30秒で登録</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Shield className="w-5 h-5 text-emerald-600" />
+                                <span>安心・安全</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Problem & Solution */}
-                    <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 max-w-5xl mx-auto">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                            <div>
-                                <h2 className="text-2xl font-bold text-slate-900 mb-6">
-                                    こんな悩み、ありませんか？
-                                </h2>
-                                <div className="space-y-4">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-1">
-                                            <span className="text-red-600 text-sm">✗</span>
-                                        </div>
-                                        <span className="text-slate-600">家計簿アプリが複雑すぎて続かない</span>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-1">
-                                            <span className="text-red-600 text-sm">✗</span>
-                                        </div>
-                                        <span className="text-slate-600">パートナーとの支出が曖昧になりがち</span>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-1">
-                                            <span className="text-red-600 text-sm">✗</span>
-                                        </div>
-                                        <span className="text-slate-600">毎月の精算が面倒で喧嘩になる</span>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-1">
-                                            <span className="text-red-600 text-sm">✗</span>
-                                        </div>
-                                        <span className="text-slate-600">お金の流れが見えず不安</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-emerald-600 mb-6">
-                                    すべて解決します！
-                                </h2>
-                                <div className="space-y-4">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center mt-1">
-                                            <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                        </div>
-                                        <span className="text-slate-600">シンプルな操作で誰でも続けられる</span>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center mt-1">
-                                            <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                        </div>
-                                        <span className="text-slate-600">リアルタイムで支出を共有・透明化</span>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center mt-1">
-                                            <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                        </div>
-                                        <span className="text-slate-600">自動精算でストレスフリー</span>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center mt-1">
-                                            <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                        </div>
-                                        <span className="text-slate-600">美しいグラフで支出を可視化</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -257,118 +190,51 @@ const LandingPage = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
-                            家計管理がこんなに変わります
+                            なぜ選ばれるのか
                         </h2>
                         <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                            二人暮らしに特化した機能で、お金の悩みをすべて解決
+                            二人暮らしに特化した、シンプルで続けやすい家計簿
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-20">
-                        <div>
-                            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="text-center p-6">
+                            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                                 <Zap className="w-8 h-8 text-emerald-600" />
                             </div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-4">
-                                面倒な家計簿を一瞬で
+                            <h3 className="text-xl font-bold text-slate-900 mb-4">
+                                かんたん操作
                             </h3>
-                            <p className="text-lg text-slate-600 mb-6">
-                                従来の家計簿アプリは機能が多すぎて挫折しがち。
-                                私たちは本当に必要な機能だけに絞り、
-                                誰でも続けられるシンプルさを実現しました。
+                            <p className="text-slate-600">
+                                3タップで支出記録完了。
+                                複雑な設定は一切不要です。
                             </p>
-                            <ul className="space-y-3">
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                                    <span className="text-slate-600">3タップで支出記録完了</span>
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                                    <span className="text-slate-600">複雑な設定は一切不要</span>
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                                    <span className="text-slate-600">直感的で美しいデザイン</span>
-                                </li>
-                            </ul>
                         </div>
-                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-8 h-80 flex items-center justify-center">
-                            <div className="text-center">
-                                <Smartphone className="w-24 h-24 text-emerald-600 mx-auto mb-4" />
-                                <p className="text-slate-600">アプリのモックアップ画像</p>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-20">
-                        <div className="md:order-2">
-                            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
+                        <div className="text-center p-6">
+                            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                                 <Users className="w-8 h-8 text-blue-600" />
                             </div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-4">
-                                二人だけの家計簿
+                            <h3 className="text-xl font-bold text-slate-900 mb-4">
+                                二人で共有
                             </h3>
-                            <p className="text-lg text-slate-600 mb-6">
-                                一般的な家計簿アプリは個人用。
-                                でも同棲や結婚生活では、二人で支出を共有することが重要。
-                                リアルタイムで同期して、透明性のある家計管理を実現します。
+                            <p className="text-slate-600">
+                                リアルタイム同期で
+                                いつでも最新の支出を確認。
                             </p>
-                            <ul className="space-y-3">
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                    <span className="text-slate-600">リアルタイム同期でいつでも最新</span>
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                    <span className="text-slate-600">誰がいくら使ったか一目瞭然</span>
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                    <span className="text-slate-600">月末の精算も自動計算</span>
-                                </li>
-                            </ul>
                         </div>
-                        <div className="md:order-1 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 h-80 flex items-center justify-center">
-                            <div className="text-center">
-                                <Heart className="w-24 h-24 text-blue-600 mx-auto mb-4" />
-                                <p className="text-slate-600">カップル画像</p>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                        <div>
-                            <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mb-6">
-                                <PieChart className="w-8 h-8 text-purple-600" />
+                        <div className="text-center p-6">
+                            <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                <BarChart3 className="w-8 h-8 text-purple-600" />
                             </div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-4">
-                                お金の流れが見える化
+                            <h3 className="text-xl font-bold text-slate-900 mb-4">
+                                自動で分析
                             </h3>
-                            <p className="text-lg text-slate-600 mb-6">
-                                「今月何にいくら使った？」がすぐにわかる。
-                                美しいグラフで支出傾向を可視化し、
-                                無駄遣いを発見して効率的に節約できます。
+                            <p className="text-slate-600">
+                                グラフで支出を可視化。
+                                月末の精算も自動計算。
                             </p>
-                            <ul className="space-y-3">
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                                    <span className="text-slate-600">カテゴリ別支出の円グラフ</span>
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                                    <span className="text-slate-600">月別推移の折れ線グラフ</span>
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                                    <span className="text-slate-600">予算との比較表示</span>
-                                </li>
-                            </ul>
-                        </div>
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-8 h-80 flex items-center justify-center">
-                            <div className="text-center">
-                                <BarChart3 className="w-24 h-24 text-purple-600 mx-auto mb-4" />
-                                <p className="text-slate-600">グラフ画像</p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -377,56 +243,6 @@ const LandingPage = () => {
             {/* Testimonials Section */}
             <section className="py-20 bg-slate-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
-                            こんな方におすすめ
-                        </h2>
-                        <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                            様々な生活スタイルの方にご利用いただいています
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                        <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
-                            <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center mb-4">
-                                <Heart className="w-6 h-6 text-pink-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-3">同棲・新婚カップル</h3>
-                            <p className="text-slate-600 text-sm">
-                                お金の管理を始めたい、お互いの支出を透明化したいカップルに最適。
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
-                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                <Repeat className="w-6 h-6 text-blue-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-3">家計簿が続かない方</h3>
-                            <p className="text-slate-600 text-sm">
-                                複雑な家計簿アプリで挫折した経験のある方。シンプルな操作で続けられます。
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
-                            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                                <TrendingUp className="w-6 h-6 text-emerald-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-3">節約志向の方</h3>
-                            <p className="text-slate-600 text-sm">
-                                支出の見える化で無駄遣いを発見。効率的な節約で貯金額を増やしたい方に。
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
-                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                                <Smartphone className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-3">デジタル派</h3>
-                            <p className="text-slate-600 text-sm">
-                                手書きの家計簿は面倒、クラウドで管理したい。いつでもデータにアクセス。
-                            </p>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -451,42 +267,6 @@ const LandingPage = () => {
                     </div>
 
                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 max-w-4xl mx-auto">
-                        <div className="text-center mb-8">
-                            <h3 className="text-xl font-semibold text-white mb-4">
-                                デモでは以下の機能をお試しいただけます
-                            </h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Calculator className="w-8 h-8 text-white" />
-                                </div>
-                                <h4 className="text-lg font-semibold text-white mb-2">支出の記録</h4>
-                                <p className="text-emerald-100 text-sm">
-                                    カテゴリ選択と金額入力だけの簡単操作
-                                </p>
-                            </div>
-
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <BarChart3 className="w-8 h-8 text-white" />
-                                </div>
-                                <h4 className="text-lg font-semibold text-white mb-2">グラフ分析</h4>
-                                <p className="text-emerald-100 text-sm">
-                                    美しいグラフで支出傾向を可視化
-                                </p>
-                            </div>
-
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Users className="w-8 h-8 text-white" />
-                                </div>
-                                <h4 className="text-lg font-semibold text-white mb-2">精算機能</h4>
-                                <p className="text-emerald-100 text-sm">
-                                    自動計算で月末の精算も簡単
-                                </p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -494,18 +274,11 @@ const LandingPage = () => {
             {/* CTA Section */}
             <section className="py-20 bg-white">
                 <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-                    <div className="mb-8">
-                        <span className="inline-block bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
-                            🎉 今なら完全無料
-                        </span>
-                    </div>
                     <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
-                        今すぐ始めて、<br />
-                        お金の不安を解消しませんか？
+                        今すぐ始めませんか？
                     </h2>
                     <p className="text-xl text-slate-600 mb-8">
-                        無料でアカウントを作成して、二人の家計管理を始めましょう。<br />
-                        メールアドレスだけで30秒で登録完了。
+                        無料でアカウントを作成して、二人の家計管理を始めましょう。
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                         <Link 
