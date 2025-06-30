@@ -23,7 +23,7 @@ export default function Login() {
             setError('');
             setLoading(true);
             await login(email, password);
-            navigate('/');
+            navigate('/app');
         } catch (error) {
             console.error('ログインエラー:', error);
             

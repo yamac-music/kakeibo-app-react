@@ -54,6 +54,7 @@ import PrivateRoute from './components/auth/PrivateRoute';
 
 // アプリケーション本体
 import Home from './components/Home';
+import LandingPage from './components/LandingPage';
 
 // デモモード表示コンポーネント
 function DemoModeWrapper({ children }) {
@@ -109,17 +110,23 @@ function App() {
 
     return (
         <Routes>
+            {/* ランディングページ */}
+            <Route path="/landing" element={<LandingPage />} />
+            
             {/* 認証関連のルート */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             
-            {/* 保護されたルート */}
-            <Route path="/" element={
+            {/* アプリケーション */}
+            <Route path="/app" element={
                 <PrivateRoute>
                     <Home isDemoMode={false} />
                 </PrivateRoute>
             } />
+            
+            {/* ルートアクセス - ランディングページにリダイレクト */}
+            <Route path="/" element={<LandingPage />} />
         </Routes>
     );
 }
