@@ -308,7 +308,7 @@ const LandingPage = () => {
                         </div>
                         <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4" />
-                            <span>いつでも退会可能</span>
+                            <span>いつでも登録可能</span>
                         </div>
                     </div>
                 </div>
