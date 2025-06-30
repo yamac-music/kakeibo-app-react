@@ -104,14 +104,7 @@ function AppComponent() {
         return <LoadingSpinner />;
     }
 
-    // Firebase が設定されていない場合は制限付きデモモードで表示
-    if (!isFirebaseAvailable) {
-        return (
-            <DemoModeWrapper>
-                <Home isDemoMode={true} />
-            </DemoModeWrapper>
-        );
-    }
+    // Firebase が設定されていない場合でも、ルーティングを通して適切なページを表示
 
     return (
         <Routes>
@@ -119,13 +112,19 @@ function AppComponent() {
             <Route path="/landing" element={<LandingPage />} />
             
             {/* 認証関連のルート */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/login" element={
+                !isFirebaseAvailable ? <LandingPage /> : <Login />
+            } />
+            <Route path="/signup" element={
+                !isFirebaseAvailable ? <LandingPage /> : <Signup />
+            } />
+            <Route path="/forgot-password" element={
+                !isFirebaseAvailable ? <LandingPage /> : <ForgotPassword />
+            } />
             
             {/* アプリケーション */}
             <Route path="/app" element={
-                isDemoMode ? (
+                isDemoMode || !isFirebaseAvailable ? (
                     <DemoModeWrapper>
                         <Home isDemoMode={true} />
                     </DemoModeWrapper>

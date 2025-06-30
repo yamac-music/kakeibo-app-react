@@ -899,7 +899,9 @@ function Home({ isDemoMode = false }) {
                                             </span>
                                             <button
                                                 onClick={() => {
-                                                    console.log('編集対象データ:', expense);
+                                                    if (!import.meta.env.PROD) {
+                                                        console.log('編集対象データ:', expense);
+                                                    }
                                                     setEditingExpense(expense);
                                                     setShowExpenseForm(true);
                                                 }}
@@ -909,7 +911,9 @@ function Home({ isDemoMode = false }) {
                                             </button>
                                             <button
                                                 onClick={() => {
-                                                    console.log('削除対象データ:', expense);
+                                                    if (!import.meta.env.PROD) {
+                                                        console.log('削除対象データ:', expense);
+                                                    }
                                                     handleDeleteExpense(expense.id);
                                                 }}
                                                 className="p-1 text-red-600 hover:bg-red-100 rounded"

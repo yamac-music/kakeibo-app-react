@@ -30,7 +30,7 @@ const LandingPage = () => {
                             <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
                                 <Calculator className="w-6 h-6 text-white" />
                             </div>
-                            <span className="text-xl font-bold text-slate-800">二人暮らしの家計簿</span>
+                            <span className="text-xl font-bold text-slate-800">Futakake</span>
                         </div>
                         
                         {/* Desktop Navigation */}
@@ -219,8 +219,8 @@ const LandingPage = () => {
                                 二人で共有
                             </h3>
                             <p className="text-slate-600">
-                                リアルタイム同期で
-                                いつでも最新の支出を確認。
+                                データ共有で
+                                お互いの支出を管理。
                             </p>
                         </div>
 
@@ -323,7 +323,7 @@ const LandingPage = () => {
                                 <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
                                     <Calculator className="w-6 h-6 text-white" />
                                 </div>
-                                <span className="text-xl font-bold text-white">二人暮らしの家計簿</span>
+                                <span className="text-xl font-bold text-white">Futakake</span>
                             </div>
                             <p className="text-slate-400 mb-6 max-w-md">
                                 カップル・夫婦のための家計管理アプリ。<br />
@@ -351,7 +351,7 @@ const LandingPage = () => {
                                 <li><button onClick={scrollToFeatures} className="hover:text-white transition-colors">家計簿機能</button></li>
                                 <li><button onClick={scrollToFeatures} className="hover:text-white transition-colors">グラフ分析</button></li>
                                 <li><button onClick={scrollToFeatures} className="hover:text-white transition-colors">精算機能</button></li>
-                                <li><button onClick={scrollToFeatures} className="hover:text-white transition-colors">リアルタイム同期</button></li>
+                                <li><button onClick={scrollToFeatures} className="hover:text-white transition-colors">データ共有</button></li>
                             </ul>
                         </div>
                         
@@ -369,7 +369,7 @@ const LandingPage = () => {
                     <div className="border-t border-slate-800 pt-8">
                         <div className="flex flex-col md:flex-row justify-between items-center">
                             <div className="text-sm text-slate-400 mb-4 md:mb-0">
-                                © 2025 二人暮らしの家計簿. All rights reserved.
+                                © 2025 Futakake. All rights reserved.
                             </div>
                             <div className="flex items-center space-x-6 text-sm text-slate-400">
                                 <span className="flex items-center gap-2">
