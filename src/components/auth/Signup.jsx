@@ -45,7 +45,7 @@ export default function Signup() {
             setError('');
             setLoading(true);
             await signup(email, password, displayName);
-            navigate('/');
+            navigate('/app');
         } catch (error) {
             console.error('サインアップエラー:', error);
             
