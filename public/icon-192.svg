@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d9488;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="94" fill="url(#bg)"/>
+  
+  <!-- Calculator icon -->
+  <rect x="57.599999999999994" y="48" width="76.80000000000001" height="96" rx="9.600000000000001" fill="#ffffff" opacity="0.9"/>
+  <rect x="61.44" y="53.760000000000005" width="69.12" height="23.04" rx="3.84" fill="#065f46"/>
+  
+  <!-- Calculator buttons -->
+  <circle cx="72.96000000000001" cy="96" r="5.76" fill="#10b981"/>
+  <circle cx="96" cy="96" r="5.76" fill="#10b981"/>
+  <circle cx="119.03999999999999" cy="96" r="5.76" fill="#10b981"/>
+  
+  <circle cx="72.96000000000001" cy="115.19999999999999" r="5.76" fill="#10b981"/>
+  <circle cx="96" cy="115.19999999999999" r="5.76" fill="#10b981"/>
+  <circle cx="119.03999999999999" cy="115.19999999999999" r="5.76" fill="#059669"/>
+  
+  <circle cx="72.96000000000001" cy="134.39999999999998" r="5.76" fill="#10b981"/>
+  <circle cx="96" cy="134.39999999999998" r="5.76" fill="#10b981"/>
+  <circle cx="119.03999999999999" cy="134.39999999999998" r="5.76" fill="#059669"/>
+</svg>
