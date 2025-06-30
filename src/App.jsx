@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext.jsx';
 
 // エラーバウンダリー
@@ -91,8 +91,13 @@ function LoadingSpinner() {
     );
 }
 
-function App() {
+function AppComponent() {
     const { isFirebaseAvailable, loading } = useAuth();
+    const location = useLocation();
+    
+    // URLパラメータからデモモードを確認
+    const searchParams = new URLSearchParams(location.search);
+    const isDemoMode = searchParams.get('demo') === 'true';
 
     // Firebase初期化中はローディング表示
     if (loading) {
@@ -120,15 +125,25 @@ function App() {
             
             {/* アプリケーション */}
             <Route path="/app" element={
-                <PrivateRoute>
-                    <Home isDemoMode={false} />
-                </PrivateRoute>
+                isDemoMode ? (
+                    <DemoModeWrapper>
+                        <Home isDemoMode={true} />
+                    </DemoModeWrapper>
+                ) : (
+                    <PrivateRoute>
+                        <Home isDemoMode={false} />
+                    </PrivateRoute>
+                )
             } />
             
             {/* ルートアクセス - ランディングページにリダイレクト */}
             <Route path="/" element={<LandingPage />} />
         </Routes>
     );
+}
+
+function App() {
+    return <AppComponent />;
 }
 
 // エラーバウンダリーでラップしたAppコンポーネントをエクスポート
