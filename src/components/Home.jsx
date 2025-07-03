@@ -113,6 +113,7 @@ function Home({ isDemoMode = false }) {
 
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
     // --- Firestoreコレクションパスの定義 ---
     const getExpensesCollectionPath = useCallback(() => {
@@ -266,6 +267,10 @@ function Home({ isDemoMode = false }) {
                     setExpenses(currentExpenses);
                     setShowExpenseForm(false);
                     setEditingExpense(null);
+                    
+                    // 成功メッセージを表示
+                    setShowSuccessMessage(true);
+                    setTimeout(() => setShowSuccessMessage(false), 3000);
                 } else {
                     alert('デモデータの保存に失敗しました。');
                 }
@@ -307,6 +312,10 @@ function Home({ isDemoMode = false }) {
 
             setShowExpenseForm(false);
             setEditingExpense(null);
+            
+            // 成功メッセージを表示
+            setShowSuccessMessage(true);
+            setTimeout(() => setShowSuccessMessage(false), 3000);
         } catch (error) {
             if (!import.meta.env.PROD) {
                 console.error('支出データの保存エラー:', error);
@@ -1027,6 +1036,16 @@ function Home({ isDemoMode = false }) {
             {/* 利用規約モーダル */}
             {showTermsModal && (
                 <TermsModal onClose={() => setShowTermsModal(false)} />
+            )}
+
+            {/* 成功メッセージ */}
+            {showSuccessMessage && (
+                <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    支出を登録しました！
+                </div>
             )}
 
         </div>
