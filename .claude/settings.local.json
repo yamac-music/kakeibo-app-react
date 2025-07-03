@@ -32,7 +32,10 @@
       "Bash(git checkout:*)",
       "Bash(awk:*)",
       "Bash(gh pr create:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npx gh-pages:*)",
+      "Bash(gh workflow:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

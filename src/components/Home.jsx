@@ -1307,6 +1307,16 @@ const SettingsModal = ({ user1Name, user2Name, onSaveUserNames, onExportData, on
                             </button>
                         </div>
                     </div>
+
+                    {/* バージョン情報 */}
+                    <div>
+                        <h4 className="font-medium text-gray-700 mb-3">バージョン情報</h4>
+                        <div className="text-sm text-gray-600 space-y-1">
+                            <p>バージョン: 1.0.0</p>
+                            <p>最終更新: 2025-07-03</p>
+                            <p>コミット: 634526e</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
