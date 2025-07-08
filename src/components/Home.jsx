@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit3, Save, XCircle, PlusCircle, Users, ListChecks, PieChart as PieChartIcon, Info, Download, Upload, Settings, Target, TrendingUp, DollarSign, Wallet, LogOut, Search, Copy } from 'lucide-react';
 
 // Firebaseのインポート
 import { 
@@ -114,6 +114,26 @@ function Home({ isDemoMode = false }) {
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    
+    // --- 検索機能 ---
+    const handleSearch = useCallback(() => {
+        if (searchTerm.trim()) {
+            setIsSearching(true);
+        }
+    }, [searchTerm]);
+    
+    const handleClearSearch = useCallback(() => {
+        setIsSearching(false);
+        setSearchTerm('');
+    }, []);
+    
+    const handleSearchKeyPress = useCallback((e) => {
+        if (e.key === 'Enter') {
+            handleSearch();
+        }
+    }, [handleSearch]);
 
     // --- Firestoreコレクションパスの定義 ---
     const getExpensesCollectionPath = useCallback(() => {
@@ -492,10 +512,19 @@ function Home({ isDemoMode = false }) {
     // --- 計算ロジック (メモ化) ---
     const monthlyFilteredExpenses = useMemo(() => {
         const monthYearStr = formatMonthYear(currentMonth);
-        return expenses
-            .filter(expense => formatMonthYear(new Date(expense.date)) === monthYearStr)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
-    }, [expenses, currentMonth]);
+        let filtered = expenses
+            .filter(expense => formatMonthYear(new Date(expense.date)) === monthYearStr);
+        
+        // 検索機能が有効な場合、検索条件でフィルタリング
+        if (isSearching && searchTerm.trim()) {
+            filtered = filtered.filter(expense => 
+                expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                expense.category.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+        
+        return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
+    }, [expenses, currentMonth, searchTerm, isSearching]);
 
     const totals = useMemo(() => { 
         let user1ExpenseTotal = 0;
@@ -864,6 +893,44 @@ function Home({ isDemoMode = false }) {
                         <ListChecks size={20} />
                         支出一覧 ({monthlyFilteredExpenses.length}件)
                     </h3>
+                    
+                    {/* 検索機能 */}
+                    <div className="mb-4">
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="支出を検索..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyPress={handleSearchKeyPress}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                onClick={handleSearch}
+                                disabled={!searchTerm.trim()}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                                <Search size={16} />
+                                検索
+                            </button>
+                            <button
+                                onClick={handleClearSearch}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                            >
+                                クリア
+                            </button>
+                        </div>
+                        {isSearching && (
+                            <div className="mt-2 text-sm text-gray-600">
+                                検索結果
+                                {searchTerm && (
+                                    <span className="ml-2 font-semibold">
+                                        「{searchTerm}」({monthlyFilteredExpenses.length}件)
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                         {monthlyFilteredExpenses.length === 0 ? (
@@ -1347,6 +1414,16 @@ const BudgetModal = ({ currentMonth, monthlyBudgets, onSave, onClose }) => {
     const monthKey = formatMonthYear(currentMonth);
     const currentMonthBudgets = monthlyBudgets[monthKey] || {};
     
+    // 前月のキーを計算（メモ化）
+    const previousMonth = useMemo(() => {
+        const prevMonth = new Date(currentMonth);
+        prevMonth.setMonth(prevMonth.getMonth() - 1);
+        return prevMonth;
+    }, [currentMonth]);
+    
+    const previousMonthKey = useMemo(() => formatMonthYear(previousMonth), [previousMonth]);
+    const previousMonthBudgets = useMemo(() => monthlyBudgets[previousMonthKey] || {}, [monthlyBudgets, previousMonthKey]);
+    
     const [tempBudgets, setTempBudgets] = useState(() => {
         const budgets = {};
         CATEGORIES.forEach(category => {
@@ -1364,7 +1441,33 @@ const BudgetModal = ({ currentMonth, monthlyBudgets, onSave, onClose }) => {
         onClose();
     };
 
+    // 前月からコピー機能
+    const handleCopyFromPreviousMonth = useCallback(() => {
+        const hasPreviousData = Object.values(previousMonthBudgets).some(budget => budget > 0);
+        
+        if (!hasPreviousData) {
+            alert('前月の予算データが存在しません。');
+            return;
+        }
+
+        const previousMonthName = `${previousMonth.getFullYear()}年${previousMonth.getMonth() + 1}月`;
+        const confirmMessage = `前月（${previousMonthName}）の予算をコピーしますか？\n現在の入力内容は上書きされます。`;
+        const confirmCopy = confirm(confirmMessage);
+        
+        if (confirmCopy) {
+            const newBudgets = {};
+            CATEGORIES.forEach(category => {
+                newBudgets[category] = previousMonthBudgets[category] || 0;
+            });
+            setTempBudgets(newBudgets);
+        }
+    }, [previousMonthBudgets, previousMonth, setTempBudgets]);
+
     const totalBudget = Object.values(tempBudgets).reduce((sum, budget) => sum + budget, 0);
+    const hasPreviousData = useMemo(() => 
+        Object.values(previousMonthBudgets).some(budget => budget > 0), 
+        [previousMonthBudgets]
+    );
 
     return (
         <div 
@@ -1379,6 +1482,31 @@ const BudgetModal = ({ currentMonth, monthlyBudgets, onSave, onClose }) => {
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
                         <XCircle size={20} />
                     </button>
+                </div>
+
+                {/* 前月からコピーボタン */}
+                <div className="mb-4">
+                    <button
+                        onClick={handleCopyFromPreviousMonth}
+                        disabled={!hasPreviousData}
+                        title={hasPreviousData 
+                            ? `前月（${previousMonth.getFullYear()}年${previousMonth.getMonth() + 1}月）の予算をコピー` 
+                            : '前月の予算データが存在しません'
+                        }
+                        aria-label={`前月（${previousMonth.getFullYear()}年${previousMonth.getMonth() + 1}月）から予算をコピー`}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                        <Copy size={16} />
+                        前月からコピー
+                        {!hasPreviousData && (
+                            <span className="text-xs ml-1">(データなし)</span>
+                        )}
+                    </button>
+                    {hasPreviousData && (
+                        <p className="text-xs text-gray-600 mt-1 text-center">
+                            {previousMonth.getFullYear()}年{previousMonth.getMonth() + 1}月の予算を利用できます
+                        </p>
+                    )}
                 </div>
 
                 <div className="space-y-4">
