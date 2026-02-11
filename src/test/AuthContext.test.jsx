@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { AuthProvider, useAuth } from '../contexts/AuthContext.jsx'
+import { AuthProvider } from '../contexts/AuthContext.jsx'
+import { useAuth } from '../contexts/useAuth.jsx'
 
 // テスト用コンポーネント
 const TestComponent = () => {

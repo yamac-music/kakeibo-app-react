@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext.jsx';
+import { useAuth } from './contexts/useAuth.jsx';
 
 // エラーバウンダリー
 class ErrorBoundary extends React.Component {

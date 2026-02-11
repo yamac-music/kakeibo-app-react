@@ -1,9 +1,9 @@
-import React from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calculator, TrendingUp, Users, Shield, Smartphone, BarChart3, Heart, Star, CheckCircle, ArrowRight, Zap, Clock, PieChart, Camera, Repeat, Download, Menu, X } from 'lucide-react';
+import { Calculator, Users, Shield, Smartphone, BarChart3, Heart, ArrowRight, Zap, Clock, Menu, X } from 'lucide-react';
 
 const LandingPage = () => {
-    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const scrollToFeatures = () => {
         document.getElementById('features').scrollIntoView({ behavior: 'smooth' });

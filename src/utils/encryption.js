@@ -5,18 +5,42 @@
 
 // 暗号化キーの生成（ブラウザセッション毎に変更）
 let encryptionKey = null;
+const ENCRYPTION_KEY_STORAGE_KEY = '__kakeibo_demo_encryption_key__';
 
 /**
  * 暗号化キーの初期化
  * @returns {string} 暗号化キー
  */
 function initializeEncryptionKey() {
-    if (!encryptionKey) {
-        // ランダムな暗号化キーを生成（セッション毎）
-        const array = new Uint8Array(32);
-        crypto.getRandomValues(array);
-        encryptionKey = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    if (encryptionKey) {
+        return encryptionKey;
     }
+
+    try {
+        const storedKey = localStorage.getItem(ENCRYPTION_KEY_STORAGE_KEY);
+        if (storedKey && typeof storedKey === 'string') {
+            encryptionKey = storedKey;
+            return encryptionKey;
+        }
+    } catch (error) {
+        if (!import.meta.env.PROD) {
+            console.warn('暗号化キーの読み込みに失敗しました。新しいキーを生成します。', error);
+        }
+    }
+
+    // キーが存在しない場合のみ新規生成
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    encryptionKey = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+
+    try {
+        localStorage.setItem(ENCRYPTION_KEY_STORAGE_KEY, encryptionKey);
+    } catch (error) {
+        if (!import.meta.env.PROD) {
+            console.warn('暗号化キーの保存に失敗しました。', error);
+        }
+    }
+
     return encryptionKey;
 }
 
@@ -28,17 +52,22 @@ function initializeEncryptionKey() {
  */
 function xorEncrypt(text, key) {
     if (!text || typeof text !== 'string') return '';
-    
-    let result = '';
-    for (let i = 0; i < text.length; i++) {
-        const textChar = text.charCodeAt(i);
-        const keyChar = key.charCodeAt(i % key.length);
-        result += String.fromCharCode(textChar ^ keyChar);
-    }
-    
-    // Base64エンコード
+
     try {
-        return btoa(result);
+        const textBytes = new TextEncoder().encode(text);
+        const keyBytes = new TextEncoder().encode(key);
+        const encrypted = new Uint8Array(textBytes.length);
+
+        for (let i = 0; i < textBytes.length; i++) {
+            encrypted[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
+        }
+
+        let binary = '';
+        encrypted.forEach((byte) => {
+            binary += String.fromCharCode(byte);
+        });
+
+        return btoa(binary);
     } catch (error) {
         if (!import.meta.env.PROD) {
             console.error('暗号化エラー:', error);
@@ -57,17 +86,16 @@ function xorDecrypt(encryptedText, key) {
     if (!encryptedText || typeof encryptedText !== 'string') return '';
     
     try {
-        // Base64デコード
         const decoded = atob(encryptedText);
-        
-        let result = '';
-        for (let i = 0; i < decoded.length; i++) {
-            const encryptedChar = decoded.charCodeAt(i);
-            const keyChar = key.charCodeAt(i % key.length);
-            result += String.fromCharCode(encryptedChar ^ keyChar);
+        const encryptedBytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
+        const keyBytes = new TextEncoder().encode(key);
+        const decrypted = new Uint8Array(encryptedBytes.length);
+
+        for (let i = 0; i < encryptedBytes.length; i++) {
+            decrypted[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length];
         }
-        
-        return result;
+
+        return new TextDecoder().decode(decrypted);
     } catch (error) {
         if (!import.meta.env.PROD) {
             console.error('復号化エラー:', error);
@@ -204,6 +232,12 @@ export function isEncryptionAvailable() {
  * 暗号化キーをリセット（新しいセッション用）
  */
 export function resetEncryptionKey() {
+    try {
+        localStorage.removeItem(ENCRYPTION_KEY_STORAGE_KEY);
+    } catch (error) {
+        if (!import.meta.env.PROD) {
+            console.warn('暗号化キー削除エラー:', error);
+        }
+    }
     encryptionKey = null;
-    initializeEncryptionKey();
 }

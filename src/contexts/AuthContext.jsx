@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
@@ -10,12 +10,7 @@ import {
 import { auth, isFirebaseAvailable } from '../firebase';
 import { useIdleTimer } from '../hooks/useIdleTimer';
 import { initializeCSRFToken, resetCSRFToken, validateIntegratedSecurity } from '../utils/csrf';
-
-const AuthContext = createContext();
-
-export function useAuth() {
-    return useContext(AuthContext);
-}
+import { AuthContext } from './authContextValue.js';
 
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
