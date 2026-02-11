@@ -19,6 +19,7 @@ Firebase Authentication対応の家計簿アプリケーションです。Docker
 - 📈 **データ可視化**: 円グラフで支出の内訳を視覚的に確認
 - ⚖️ **精算機能**: 二人の支払額を自動計算し、精算すべき金額を表示
 - 💾 **データバックアップ**: JSON形式でのエクスポート・インポート機能
+- 🧩 **データスキーマ v2**: `payerId` ベースで支払者管理し、名前変更後も集計を維持
 - 🔒 **プライベート**: Firebase認証によるセキュアなデータ管理
 - 🐳 **Docker対応**: 開発・テスト・本番環境をコンテナ化
 
@@ -60,6 +61,9 @@ VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+VITE_BASE_PATH=/kakeibo-app-react/
+VITE_APP_VERSION=1.0.0
+VITE_APP_COMMIT_SHA=local
 ```
 
 ### 3. 開発環境
@@ -119,6 +123,7 @@ npm install
 2. Firestore Database を有効化
 3. Authentication でメール/パスワード認証を有効化
 4. `.env.local` ファイルに Firebase設定を記入
+   - 任意で `VITE_BASE_PATH` / `VITE_APP_VERSION` / `VITE_APP_COMMIT_SHA` も設定
 
 ### 3. Firestoreセキュリティルールの設定
 

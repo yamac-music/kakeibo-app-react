@@ -1,0 +1,274 @@
+import {
+  CATEGORIES,
+  EXPORT_VERSION,
+  FIRESTORE_IMPORT_CHUNK_SIZE,
+  SCHEMA_VERSION
+} from './constants';
+import {
+  getDisplayNameFromPayerId,
+  isValidPayerId,
+  normalizeDisplayNames,
+  normalizeSettlementRecords,
+  normalizePayerAliases,
+  resolvePayerId
+} from './normalizers';
+import {
+  sanitizeString,
+  validateAmount,
+  validateDate,
+  validateDescription,
+  validateUsername
+} from '../../utils/validation.js';
+
+function normalizeBudgetMap(rawBudgets) {
+  if (!rawBudgets || typeof rawBudgets !== 'object') {
+    return {};
+  }
+
+  const result = {};
+  Object.entries(rawBudgets).forEach(([monthKey, categoryBudgets]) => {
+    if (!monthKey || typeof categoryBudgets !== 'object') return;
+
+    const normalizedCategories = {};
+    Object.entries(categoryBudgets).forEach(([category, amount]) => {
+      const normalizedAmount = Number(amount);
+      if (Number.isFinite(normalizedAmount) && normalizedAmount >= 0) {
+        normalizedCategories[sanitizeString(category)] = Math.floor(normalizedAmount);
+      }
+    });
+
+    result[monthKey] = normalizedCategories;
+  });
+
+  return result;
+}
+
+function parseImportSettings(rawData, fallbackSettings) {
+  const legacyDisplayNames = rawData?.userNames
+    ? {
+        user1Name: rawData.userNames.user1Name,
+        user2Name: rawData.userNames.user2Name
+      }
+    : null;
+
+  const normalizedDisplayNames = normalizeDisplayNames(
+    rawData?.settings || legacyDisplayNames || fallbackSettings.displayNames
+  );
+
+  const normalizedPayerAliases = normalizePayerAliases(
+    rawData?.settings?.payerAliases || fallbackSettings.payerAliases,
+    normalizedDisplayNames
+  );
+
+  return {
+    displayNames: normalizedDisplayNames,
+    payerAliases: normalizedPayerAliases,
+    settlements: normalizeSettlementRecords(
+      rawData?.settings?.settlements || fallbackSettings?.settlements
+    ),
+    meta: {
+      schemaVersion: rawData?.settings?.meta?.schemaVersion || SCHEMA_VERSION,
+      updatedAt: new Date().toISOString()
+    }
+  };
+}
+
+function normalizeImportedExpense(rawExpense, index, settings) {
+  const amountValidation = validateAmount(rawExpense.amount);
+  if (!amountValidation.isValid) {
+    return {
+      ok: false,
+      error: `#${index + 1}: 金額が不正です (${amountValidation.error})`
+    };
+  }
+
+  const descriptionValidation = validateDescription(rawExpense.description || '');
+  if (!descriptionValidation.isValid) {
+    return {
+      ok: false,
+      error: `#${index + 1}: 説明が不正です (${descriptionValidation.error})`
+    };
+  }
+
+  const category = sanitizeString(rawExpense.category || '');
+  if (!CATEGORIES.includes(category)) {
+    return {
+      ok: false,
+      error: `#${index + 1}: カテゴリが不正です`
+    };
+  }
+
+  const dateValidation = validateDate(rawExpense.date || '');
+  if (!dateValidation.isValid) {
+    return {
+      ok: false,
+      error: `#${index + 1}: 日付が不正です (${dateValidation.error})`
+    };
+  }
+
+  const resolvedPayer = resolvePayerId(rawExpense, settings.displayNames, settings.payerAliases);
+  if (!resolvedPayer.payerId) {
+    return {
+      ok: false,
+      error: `#${index + 1}: 支払者を user1/user2 に解決できません`
+    };
+  }
+
+  return {
+    ok: true,
+    expense: {
+      description: descriptionValidation.sanitized,
+      amount: amountValidation.sanitized,
+      category,
+      payerId: resolvedPayer.payerId,
+      payer: getDisplayNameFromPayerId(resolvedPayer.payerId, settings.displayNames),
+      date: dateValidation.sanitized,
+      createdAt: rawExpense.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      schemaVersion: SCHEMA_VERSION
+    }
+  };
+}
+
+export function normalizeImportPayload(rawData, fallbackSettings) {
+  const errors = [];
+
+  if (!rawData || typeof rawData !== 'object') {
+    return {
+      ok: false,
+      errors: ['JSON のルート要素がオブジェクトではありません。']
+    };
+  }
+
+  if (!Array.isArray(rawData.expenses)) {
+    return {
+      ok: false,
+      errors: ['expenses 配列が存在しません。']
+    };
+  }
+
+  const settings = parseImportSettings(rawData, fallbackSettings);
+  const expenses = [];
+
+  rawData.expenses.forEach((expense, index) => {
+    const normalized = normalizeImportedExpense(expense, index, settings);
+    if (!normalized.ok) {
+      errors.push(normalized.error);
+      return;
+    }
+
+    expenses.push(normalized.expense);
+  });
+
+  return {
+    ok: true,
+    settings,
+    monthlyBudgets: normalizeBudgetMap(rawData.monthlyBudgets),
+    expenses,
+    errors
+  };
+}
+
+export function buildExportPayload({ expenses, settings, monthlyBudgets }) {
+  const errors = [];
+
+  const normalizedExpenses = expenses
+    .map((expense, index) => {
+      const payerId = expense.payerId;
+      if (!isValidPayerId(payerId)) {
+        errors.push(`#${index + 1}: payerId が未設定です`);
+        return null;
+      }
+
+      const amountValidation = validateAmount(expense.amount);
+      const dateValidation = validateDate(expense.date || '');
+      const descriptionValidation = validateDescription(expense.description || '');
+
+      if (!amountValidation.isValid) {
+        errors.push(`#${index + 1}: amount が不正です`);
+        return null;
+      }
+
+      if (!dateValidation.isValid) {
+        errors.push(`#${index + 1}: date が不正です`);
+        return null;
+      }
+
+      if (!descriptionValidation.isValid) {
+        errors.push(`#${index + 1}: description が不正です`);
+        return null;
+      }
+
+      return {
+        id: expense.id,
+        description: descriptionValidation.sanitized,
+        amount: amountValidation.sanitized,
+        category: sanitizeString(expense.category),
+        payerId,
+        date: dateValidation.sanitized,
+        createdAt: expense.createdAt || null,
+        updatedAt: expense.updatedAt || null,
+        schemaVersion: SCHEMA_VERSION
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    errors,
+    payload: {
+      version: EXPORT_VERSION,
+      exportDate: new Date().toISOString(),
+      settings: {
+        displayNames: settings.displayNames,
+        payerAliases: settings.payerAliases,
+        settlements: settings.settlements || {},
+        meta: {
+          schemaVersion: SCHEMA_VERSION,
+          updatedAt: new Date().toISOString()
+        }
+      },
+      monthlyBudgets,
+      expenses: normalizedExpenses
+    }
+  };
+}
+
+export function splitIntoChunks(items, chunkSize = FIRESTORE_IMPORT_CHUNK_SIZE) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const chunks = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+export async function commitInChunks(items, commitChunk, chunkSize = FIRESTORE_IMPORT_CHUNK_SIZE) {
+  const chunks = splitIntoChunks(items, chunkSize);
+  let committedCount = 0;
+
+  for (const chunk of chunks) {
+    await commitChunk(chunk);
+    committedCount += chunk.length;
+  }
+
+  return committedCount;
+}
+
+export function validateDisplayNames(displayNames) {
+  const user1 = validateUsername(displayNames.user1 || '');
+  const user2 = validateUsername(displayNames.user2 || '');
+
+  const errors = [];
+  if (!user1.isValid) errors.push(`ユーザー1: ${user1.error}`);
+  if (!user2.isValid) errors.push(`ユーザー2: ${user2.error}`);
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    displayNames: {
+      user1: user1.sanitized,
+      user2: user2.sanitized
+    }
+  };
+}
