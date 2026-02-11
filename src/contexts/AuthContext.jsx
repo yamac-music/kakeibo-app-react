@@ -65,7 +65,9 @@ export function AuthProvider({ children }) {
         if (currentUser && isFirebaseAvailable) {
             try {
                 await logout();
-                alert('セッションがタイムアウトしました。再度ログインしてください。');
+                if (!import.meta.env.PROD) {
+                    console.warn('セッションがタイムアウトしました。再度ログインしてください。');
+                }
             } catch (error) {
                 if (!import.meta.env.PROD) {
                     console.error('自動ログアウトエラー:', error);

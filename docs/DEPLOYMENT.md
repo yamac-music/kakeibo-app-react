@@ -90,6 +90,10 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 2. GitHub の **Actions** タブで自動デプロイを確認
 3. デプロイ完了後、`https://username.github.io/repository-name/` でアクセス可能
 
+補足:
+- CI (`.github/workflows/ci.yml`) で `lint + test:run + test:coverage + build` を実行します。
+- `test:coverage` はしきい値（statements/lines 55%以上）を満たさないと失敗します。
+
 ## 🛡️ セキュリティ注意事項
 
 - Firebase API キーは公開されますが、Firestore セキュリティルールで適切に保護されています

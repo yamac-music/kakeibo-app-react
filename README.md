@@ -18,8 +18,11 @@ Firebase Authentication対応の家計簿アプリケーションです。Docker
 - 👥 **二人での共有**: ユーザー名をカスタマイズして支払者を管理
 - 📈 **データ可視化**: 円グラフで支出の内訳を視覚的に確認
 - ⚖️ **精算機能**: 二人の支払額を自動計算し、精算すべき金額を表示
+- 🔐 **月次締め機能**: 精算スナップショット付きで月を締め、解除理由履歴も保持
+- ⚡ **クイック登録**: テンプレート/固定費候補から1タップ追加
 - 💾 **データバックアップ**: JSON形式でのエクスポート・インポート機能
-- 🧩 **データスキーマ v2**: `payerId` ベースで支払者管理し、名前変更後も集計を維持
+- 🧩 **データスキーマ v2.1**: `payerId` + `monthClosures` + `quickTemplates` を標準化
+- 🛟 **復元ポイント**: インポート前の自動バックアップ（最新3世代）をローカル保持
 - 🔒 **プライベート**: Firebase認証によるセキュアなデータ管理
 - 🐳 **Docker対応**: 開発・テスト・本番環境をコンテナ化
 
@@ -200,7 +203,10 @@ src/
 │   │   ├── Signup.jsx     # 新規登録画面
 │   │   ├── ForgotPassword.jsx # パスワードリセット
 │   │   └── PrivateRoute.jsx   # 認証保護ルート
-│   └── Home.jsx           # メインアプリケーション
+│   ├── home/              # Home分割済みセクション/モーダル
+│   ├── ui/                # 共通UI（Toast/Confirm/Prompt）
+│   └── Home.jsx           # 画面合成専用
+├── features/expenses/     # 家計データドメイン（計算・正規化・Repository）
 ├── contexts/
 │   └── AuthContext.jsx   # 認証コンテキスト
 ├── test/                  # テストファイル
@@ -223,7 +229,7 @@ src/
 テストは以下を含みます：
 - 認証フローのテスト
 - コンポーネントのレンダリングテスト
-- Firebase未設定時のデモモード表示テスト
+- デモモード永続化・月次締め・インポート整合性のテスト
 
 ```bash
 # ローカルでのテスト実行
@@ -234,6 +240,8 @@ npm run test:coverage   # カバレッジ付き
 # Dockerでのテスト実行
 docker-compose --profile test run --rm app-test npm run test:run
 ```
+
+`test:coverage` は CI で必須実行され、設定済みしきい値（statements/lines 55%以上）を満たさない場合は失敗します。
 
 ## 📱 使用方法
 

@@ -16,7 +16,8 @@ npm run dev
 ```
 
 - `http://localhost:5173/app?demo=true` にアクセス
-- Firebase未設定でも動作します（データはブラウザのlocalStorageに保存されるため、保証はありません）
+- Firebase未設定でも動作します（データはブラウザのlocalStorageに保存）
+- デモモードでも「復元ポイント（最新3世代）」を使って戻せます
 
 ## Firebaseを使う場合の準備
 1) `.env.local` を作成
@@ -47,7 +48,11 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 - Firebase初期化: `src/firebase.js`
   - 環境変数の検証と `isFirebaseAvailable` の判定
 - メイン機能: `src/components/Home.jsx`
-  - 支出管理・予算・精算・インポート/エクスポート
+  - 画面合成のみを担当
+- Home制御: `src/features/expenses/hooks/useHomeController.js`
+  - 状態管理・保存処理・通知・確認ダイアログを集約
+- Home UI分割: `src/components/home/`
+  - `MonthSummaryCard.jsx`, `SettlementPanel.jsx`, `ExpenseListPanel.jsx`, `CategoryPiePanel.jsx`
 - ランディング: `src/components/LandingPage.jsx`
   - LPとCTA導線
 - 入力検証: `src/utils/validation.js`
@@ -67,8 +72,11 @@ VITE_FIREBASE_MEASUREMENT_ID=...
   - 支出: `expenses`
   - 設定: `settings/userNames`, `settings/budgets`
 - 支出データの主な項目:
-  - `amount`, `category`, `payerId`, `description`, `date`, `createdAt`, `updatedAt`, `uid`
+  - `amount`, `category`, `payerId`, `description`, `date`, `createdAt`, `updatedAt`, `uid`, `fingerprint`
   - 旧形式の `payer` 文字列は読み込み時に互換処理されます
+- settingsの主な項目:
+  - `displayNames`, `payerAliases`, `settlements`, `monthClosures`, `quickTemplates`, `preferences`, `meta`
+- インポートは `dryRun -> 実行` の2段階です
 - デモモードでは `localStorage`（暗号化対応）に保存
 
 ## React初心者が迷いやすいポイント
@@ -79,13 +87,16 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 
 ## よくある小さな変更例
 1) カテゴリを追加する
-- `src/components/Home.jsx` の `CATEGORIES` 配列に追記
+- `src/features/expenses/constants.js` の `CATEGORIES` 配列に追記
 
 2) 入力制限を変える
 - `src/utils/validation.js` の `VALIDATION_LIMITS` を変更
 
 5) データ層（Firestore/localStorage）を調整する
 - `src/features/expenses/repositories/` 配下を編集
+
+6) 月次締め・精算の仕様を調整する
+- `src/components/home/SettlementPanel.jsx` と `src/features/expenses/hooks/useHomeController.js` を編集
 
 3) ランディングの文言を変える
 - `src/components/LandingPage.jsx` のテキストを編集
@@ -97,6 +108,7 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 ```bash
 npm run lint
 npm run test:run
+npm run test:coverage
 ```
 
 - テストは `src/test` 配下

@@ -1,27 +1,59 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Save, XCircle } from 'lucide-react';
 import { formatDateToInput, isValidPayerId } from '../../features/expenses';
 
+function buildInitialFormState(editingExpense, initialDraft, categories) {
+  if (editingExpense) {
+    return {
+      description: editingExpense.description || '',
+      amount: editingExpense.amount || '',
+      category: editingExpense.category || categories[0],
+      payerId: editingExpense.payerId || '',
+      date: editingExpense.date || formatDateToInput(new Date())
+    };
+  }
+
+  return {
+    description: initialDraft?.description || '',
+    amount: initialDraft?.amount || '',
+    category: initialDraft?.category || categories[0],
+    payerId: initialDraft?.payerId || '',
+    date: initialDraft?.date || formatDateToInput(new Date())
+  };
+}
+
 export default function ExpenseFormModal({
   editingExpense,
+  initialDraft,
   displayNames,
   categories,
   onSave,
   onClose,
   onNotify
 }) {
-  const [description, setDescription] = useState(editingExpense?.description || '');
-  const [amount, setAmount] = useState(editingExpense?.amount || '');
-  const [category, setCategory] = useState(editingExpense?.category || categories[0]);
-  const [payerId, setPayerId] = useState(editingExpense?.payerId || '');
-  const [date, setDate] = useState(editingExpense?.date || formatDateToInput(new Date()));
+  const [formState, setFormState] = useState(() => buildInitialFormState(editingExpense, initialDraft, categories));
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+
+  const descriptionInputRef = useRef(null);
+  const amountInputRef = useRef(null);
+  const saveButtonRef = useRef(null);
+
+  useEffect(() => {
+    setFormState(buildInitialFormState(editingExpense, initialDraft, categories));
+    setSaveAsTemplate(false);
+  }, [editingExpense, initialDraft, categories]);
+
+  useEffect(() => {
+    const target = editingExpense ? descriptionInputRef.current : amountInputRef.current;
+    target?.focus();
+  }, [editingExpense]);
 
   const hasLegacyPayer = editingExpense?.payerLegacy && !editingExpense?.payerId;
 
   const handleSubmit = (event) => {
     event.preventDefault();
 
-    if (!description.trim() || !amount || Number(amount) <= 0) {
+    if (!formState.description.trim() || !formState.amount || Number(formState.amount) <= 0) {
       onNotify({
         type: 'error',
         title: '入力エラー',
@@ -30,7 +62,7 @@ export default function ExpenseFormModal({
       return;
     }
 
-    if (!isValidPayerId(payerId)) {
+    if (!isValidPayerId(formState.payerId)) {
       onNotify({
         type: 'error',
         title: '入力エラー',
@@ -40,11 +72,12 @@ export default function ExpenseFormModal({
     }
 
     onSave({
-      description: description.trim(),
-      amount: parseInt(amount, 10),
-      category,
-      payerId,
-      date
+      description: formState.description.trim(),
+      amount: parseInt(formState.amount, 10),
+      category: formState.category,
+      payerId: formState.payerId,
+      date: formState.date,
+      saveAsTemplate
     });
   };
 
@@ -73,9 +106,10 @@ export default function ExpenseFormModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>
             <input
+              ref={descriptionInputRef}
               type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={formState.description}
+              onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="支出の説明を入力"
               required
@@ -85,9 +119,17 @@ export default function ExpenseFormModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">金額</label>
             <input
+              ref={amountInputRef}
               type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              inputMode="numeric"
+              value={formState.amount}
+              onChange={(event) => setFormState((prev) => ({ ...prev, amount: event.target.value }))}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  saveButtonRef.current?.focus();
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="金額を入力"
               min="1"
@@ -98,8 +140,8 @@ export default function ExpenseFormModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">カテゴリ</label>
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              value={formState.category}
+              onChange={(event) => setFormState((prev) => ({ ...prev, category: event.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {categories.map((item) => (
@@ -111,8 +153,8 @@ export default function ExpenseFormModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">支払者</label>
             <select
-              value={payerId}
-              onChange={(e) => setPayerId(e.target.value)}
+              value={formState.payerId}
+              onChange={(event) => setFormState((prev) => ({ ...prev, payerId: event.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
@@ -126,15 +168,27 @@ export default function ExpenseFormModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">日付</label>
             <input
               type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
+              value={formState.date}
+              onChange={(event) => setFormState((prev) => ({ ...prev, date: event.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
+          {!editingExpense && (
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={saveAsTemplate}
+                onChange={(event) => setSaveAsTemplate(event.target.checked)}
+              />
+              この内容をクイックテンプレートとして保存する
+            </label>
+          )}
+
           <div className="flex gap-3 pt-4">
             <button
+              ref={saveButtonRef}
               type="submit"
               className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2"
             >
@@ -154,3 +208,4 @@ export default function ExpenseFormModal({
     </div>
   );
 }
+

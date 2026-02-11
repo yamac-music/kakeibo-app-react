@@ -1,6 +1,8 @@
 import {
+  CATEGORIES,
   DEFAULT_DISPLAY_NAMES,
   DEFAULT_PAYER_IDS,
+  MAX_QUICK_TEMPLATES,
   SCHEMA_VERSION
 } from './constants';
 import { formatDateToInput, normalizeDateString } from './date';
@@ -14,6 +16,95 @@ export function buildDefaultAliases(displayNames) {
   return {
     [displayNames.user1]: 'user1',
     [displayNames.user2]: 'user2'
+  };
+}
+
+function isValidMonthKey(monthKey) {
+  return typeof monthKey === 'string' && /^\d{4}-\d{2}$/.test(monthKey);
+}
+
+function sanitizeIsoString(value) {
+  if (!value || typeof value !== 'string') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function normalizeReopenHistory(rawHistory) {
+  if (!Array.isArray(rawHistory)) return [];
+
+  return rawHistory
+    .map((item) => ({
+      reopenedAt: sanitizeIsoString(item?.reopenedAt) || new Date().toISOString(),
+      reason: sanitizeString(item?.reason || '')
+    }))
+    .filter((item) => item.reason.length > 0);
+}
+
+function normalizeSettlementSnapshot(rawSettlementSnapshot) {
+  if (!rawSettlementSnapshot || typeof rawSettlementSnapshot !== 'object') {
+    return null;
+  }
+
+  const amount = Number(rawSettlementSnapshot.amount);
+  const fromPayerId = isValidPayerId(rawSettlementSnapshot.fromPayerId)
+    ? rawSettlementSnapshot.fromPayerId
+    : null;
+  const toPayerId = isValidPayerId(rawSettlementSnapshot.toPayerId)
+    ? rawSettlementSnapshot.toPayerId
+    : null;
+
+  if (!Number.isFinite(amount) || amount <= 0 || !fromPayerId || !toPayerId) {
+    return null;
+  }
+
+  return {
+    amount: Math.floor(amount),
+    fromPayerId,
+    toPayerId
+  };
+}
+
+function normalizeTotalsSnapshot(rawTotalsSnapshot) {
+  if (!rawTotalsSnapshot || typeof rawTotalsSnapshot !== 'object') {
+    return null;
+  }
+
+  const user1Total = Number(rawTotalsSnapshot.user1Total);
+  const user2Total = Number(rawTotalsSnapshot.user2Total);
+  const invalidPayerTotal = Number(rawTotalsSnapshot.invalidPayerTotal || 0);
+  const totalExpense = Number(rawTotalsSnapshot.totalExpense);
+
+  if (
+    !Number.isFinite(user1Total)
+    || !Number.isFinite(user2Total)
+    || !Number.isFinite(totalExpense)
+    || user1Total < 0
+    || user2Total < 0
+    || totalExpense < 0
+  ) {
+    return null;
+  }
+
+  const categories = {};
+  const rawCategories = rawTotalsSnapshot.categories;
+  if (rawCategories && typeof rawCategories === 'object') {
+    Object.entries(rawCategories).forEach(([category, amount]) => {
+      const normalizedCategory = sanitizeString(category);
+      const normalizedAmount = Number(amount);
+      if (!normalizedCategory || !Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        return;
+      }
+      categories[normalizedCategory] = Math.floor(normalizedAmount);
+    });
+  }
+
+  return {
+    user1Total: Math.floor(user1Total),
+    user2Total: Math.floor(user2Total),
+    invalidPayerTotal: Number.isFinite(invalidPayerTotal) ? Math.floor(Math.max(invalidPayerTotal, 0)) : 0,
+    totalExpense: Math.floor(totalExpense),
+    categories
   };
 }
 
@@ -55,10 +146,6 @@ export function normalizePayerAliases(rawAliases, displayNames) {
   return aliases;
 }
 
-function isValidMonthKey(monthKey) {
-  return typeof monthKey === 'string' && /^\d{4}-\d{2}$/.test(monthKey);
-}
-
 export function normalizeSettlementRecords(rawSettlements) {
   if (!rawSettlements || typeof rawSettlements !== 'object') {
     return {};
@@ -78,12 +165,94 @@ export function normalizeSettlementRecords(rawSettlements) {
       amount: Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0,
       fromPayerId,
       toPayerId,
-      completedAt: record.completedAt || new Date().toISOString(),
+      completedAt: sanitizeIsoString(record.completedAt) || new Date().toISOString(),
       memo: sanitizeString(record.memo || '')
     };
   });
 
   return normalized;
+}
+
+export function normalizeMonthClosures(rawClosures) {
+  if (!rawClosures || typeof rawClosures !== 'object') {
+    return {};
+  }
+
+  const normalized = {};
+  Object.entries(rawClosures).forEach(([monthKey, record]) => {
+    if (!isValidMonthKey(monthKey)) return;
+    if (!record || typeof record !== 'object') return;
+
+    const status = record.status === 'closed' ? 'closed' : 'open';
+    normalized[monthKey] = {
+      status,
+      closedAt: status === 'closed'
+        ? (sanitizeIsoString(record.closedAt) || new Date().toISOString())
+        : null,
+      closedBy: sanitizeString(record.closedBy || '') || null,
+      settlementSnapshot: normalizeSettlementSnapshot(record.settlementSnapshot),
+      totalsSnapshot: normalizeTotalsSnapshot(record.totalsSnapshot),
+      reopenHistory: normalizeReopenHistory(record.reopenHistory)
+    };
+  });
+
+  return normalized;
+}
+
+export function normalizeQuickTemplates(rawTemplates) {
+  if (!Array.isArray(rawTemplates)) {
+    return [];
+  }
+
+  const usedIds = new Set();
+  const normalized = [];
+
+  rawTemplates.forEach((template, index) => {
+    if (!template || typeof template !== 'object') return;
+    if (normalized.length >= MAX_QUICK_TEMPLATES) return;
+
+    const id = sanitizeString(template.id || `tpl-${index + 1}`);
+    if (!id || usedIds.has(id)) return;
+
+    const label = sanitizeString(template.label || template.description || '');
+    const amount = Number(template.amount);
+    const category = sanitizeString(template.category || '');
+    const payerId = isValidPayerId(template.payerId) ? template.payerId : null;
+
+    if (!label || !Number.isFinite(amount) || amount <= 0) return;
+    if (!CATEGORIES.includes(category)) return;
+    if (!payerId) return;
+
+    usedIds.add(id);
+    normalized.push({
+      id,
+      label,
+      amount: Math.floor(amount),
+      category,
+      payerId,
+      lastUsedAt: sanitizeIsoString(template.lastUsedAt)
+    });
+  });
+
+  return normalized;
+}
+
+function normalizeMeta(meta) {
+  if (!meta || typeof meta !== 'object') {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      updatedAt: new Date().toISOString(),
+      dataRevision: 1
+    };
+  }
+
+  return {
+    schemaVersion: sanitizeString(meta.schemaVersion || SCHEMA_VERSION) || SCHEMA_VERSION,
+    updatedAt: sanitizeIsoString(meta.updatedAt) || new Date().toISOString(),
+    dataRevision: Number.isFinite(Number(meta.dataRevision))
+      ? Math.max(1, Math.floor(Number(meta.dataRevision)))
+      : 1
+  };
 }
 
 export function normalizeSettings(rawSettings) {
@@ -92,16 +261,44 @@ export function normalizeSettings(rawSettings) {
   const settlements = normalizeSettlementRecords(
     rawSettings?.settlements || rawSettings?.settlementHistory
   );
+  const monthClosures = normalizeMonthClosures(rawSettings?.monthClosures);
+  const quickTemplates = normalizeQuickTemplates(rawSettings?.quickTemplates);
+  const rawPreferences = rawSettings?.preferences || {};
+  const preferences = {
+    suggestionsEnabled: rawPreferences.suggestionsEnabled !== false
+  };
 
   return {
     displayNames,
     payerAliases,
     settlements,
-    meta: {
-      schemaVersion: rawSettings?.meta?.schemaVersion || SCHEMA_VERSION,
-      updatedAt: rawSettings?.meta?.updatedAt || new Date().toISOString()
-    }
+    monthClosures,
+    quickTemplates,
+    preferences,
+    meta: normalizeMeta(rawSettings?.meta)
   };
+}
+
+function normalizeFingerprintPart(value) {
+  return sanitizeString(String(value || ''))
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+export function buildExpenseFingerprint(expense) {
+  const date = normalizeDateString(expense?.date);
+  const amount = Number(expense?.amount);
+  const payerId = isValidPayerId(expense?.payerId) ? expense.payerId : '';
+  const category = normalizeFingerprintPart(expense?.category);
+  const description = normalizeFingerprintPart(expense?.description);
+
+  return [
+    date,
+    Number.isFinite(amount) ? Math.floor(amount) : 0,
+    category,
+    description,
+    payerId
+  ].join('|');
 }
 
 export function resolvePayerId({ payerId, payer }, displayNames, payerAliases) {
@@ -186,6 +383,7 @@ export function normalizeExpenseRecord(rawExpense, settings) {
     date: normalizeDate(rawExpense.date || rawExpense.createdAt),
     createdAt: rawExpense.createdAt || null,
     updatedAt: rawExpense.updatedAt || null,
+    fingerprint: sanitizeString(rawExpense.fingerprint || '') || null,
     schemaVersion: rawExpense.schemaVersion || '1.0'
   };
 }
@@ -201,6 +399,7 @@ export function toExpenseWriteModel(expense, settings) {
     payerId: normalizedPayerId,
     payer: normalizedPayerId ? getDisplayNameFromPayerId(normalizedPayerId, displayNames) : (expense.payerLegacy || null),
     date: normalizeDateString(expense.date),
+    fingerprint: buildExpenseFingerprint(expense),
     schemaVersion: SCHEMA_VERSION
   };
 }
@@ -217,3 +416,4 @@ export function mergeAliasesWithDisplayNameChange(existingAliases, previousDispl
 
   return normalizePayerAliases(nextAliases, nextDisplayNames);
 }
+

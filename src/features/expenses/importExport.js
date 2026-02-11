@@ -5,11 +5,15 @@ import {
   SCHEMA_VERSION
 } from './constants';
 import {
+  buildExpenseFingerprint,
   getDisplayNameFromPayerId,
   isValidPayerId,
   normalizeDisplayNames,
-  normalizeSettlementRecords,
+  normalizeMonthClosures,
   normalizePayerAliases,
+  normalizeQuickTemplates,
+  normalizeSettlementRecords,
+  normalizeSettings,
   resolvePayerId
 } from './normalizers';
 import {
@@ -44,6 +48,7 @@ function normalizeBudgetMap(rawBudgets) {
 }
 
 function parseImportSettings(rawData, fallbackSettings) {
+  const normalizedFallback = normalizeSettings(fallbackSettings || {});
   const legacyDisplayNames = rawData?.userNames
     ? {
         user1Name: rawData.userNames.user1Name,
@@ -52,23 +57,41 @@ function parseImportSettings(rawData, fallbackSettings) {
     : null;
 
   const normalizedDisplayNames = normalizeDisplayNames(
-    rawData?.settings || legacyDisplayNames || fallbackSettings.displayNames
+    rawData?.settings || legacyDisplayNames || normalizedFallback.displayNames
   );
 
   const normalizedPayerAliases = normalizePayerAliases(
-    rawData?.settings?.payerAliases || fallbackSettings.payerAliases,
+    rawData?.settings?.payerAliases || normalizedFallback.payerAliases,
     normalizedDisplayNames
   );
+
+  const importedSettings = normalizeSettings(rawData?.settings || {});
 
   return {
     displayNames: normalizedDisplayNames,
     payerAliases: normalizedPayerAliases,
     settlements: normalizeSettlementRecords(
-      rawData?.settings?.settlements || fallbackSettings?.settlements
+      rawData?.settings?.settlements || normalizedFallback?.settlements
     ),
+    monthClosures: normalizeMonthClosures(
+      rawData?.settings?.monthClosures || normalizedFallback?.monthClosures
+    ),
+    quickTemplates: normalizeQuickTemplates(
+      rawData?.settings?.quickTemplates || normalizedFallback?.quickTemplates
+    ),
+    preferences: {
+      suggestionsEnabled:
+        rawData?.settings?.preferences?.suggestionsEnabled
+        ?? normalizedFallback?.preferences?.suggestionsEnabled
+        ?? true
+    },
     meta: {
-      schemaVersion: rawData?.settings?.meta?.schemaVersion || SCHEMA_VERSION,
-      updatedAt: new Date().toISOString()
+      schemaVersion: rawData?.settings?.meta?.schemaVersion || importedSettings.meta.schemaVersion || SCHEMA_VERSION,
+      updatedAt: new Date().toISOString(),
+      dataRevision: Math.max(
+        1,
+        Number(rawData?.settings?.meta?.dataRevision || normalizedFallback?.meta?.dataRevision || 1)
+      )
     }
   };
 }
@@ -114,24 +137,49 @@ function normalizeImportedExpense(rawExpense, index, settings) {
     };
   }
 
+  const expense = {
+    description: descriptionValidation.sanitized,
+    amount: amountValidation.sanitized,
+    category,
+    payerId: resolvedPayer.payerId,
+    payer: getDisplayNameFromPayerId(resolvedPayer.payerId, settings.displayNames),
+    date: dateValidation.sanitized,
+    createdAt: rawExpense.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    schemaVersion: SCHEMA_VERSION
+  };
+
   return {
     ok: true,
     expense: {
-      description: descriptionValidation.sanitized,
-      amount: amountValidation.sanitized,
-      category,
-      payerId: resolvedPayer.payerId,
-      payer: getDisplayNameFromPayerId(resolvedPayer.payerId, settings.displayNames),
-      date: dateValidation.sanitized,
-      createdAt: rawExpense.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      schemaVersion: SCHEMA_VERSION
+      ...expense,
+      fingerprint: buildExpenseFingerprint(expense)
     }
   };
 }
 
-export function normalizeImportPayload(rawData, fallbackSettings) {
+function createValidationSummary({
+  totalCount,
+  importedCount,
+  failedCount,
+  duplicateCount,
+  skippedDuplicateCount,
+  dryRun
+}) {
+  return {
+    totalCount,
+    importedCount,
+    failedCount,
+    duplicateCount,
+    skippedDuplicateCount,
+    dryRun: Boolean(dryRun)
+  };
+}
+
+export function normalizeImportPayload(rawData, fallbackSettings, options = {}) {
   const errors = [];
+  const skipDuplicates = options.skipDuplicates !== false;
+  const dryRun = options.dryRun === true;
 
   if (!rawData || typeof rawData !== 'object') {
     return {
@@ -149,6 +197,15 @@ export function normalizeImportPayload(rawData, fallbackSettings) {
 
   const settings = parseImportSettings(rawData, fallbackSettings);
   const expenses = [];
+  let duplicateCount = 0;
+  let skippedDuplicateCount = 0;
+
+  const existingFingerprints = new Set(
+    Array.isArray(options.existingFingerprints)
+      ? options.existingFingerprints.filter((value) => typeof value === 'string' && value.length > 0)
+      : []
+  );
+  const importedFingerprints = new Set();
 
   rawData.expenses.forEach((expense, index) => {
     const normalized = normalizeImportedExpense(expense, index, settings);
@@ -157,15 +214,39 @@ export function normalizeImportPayload(rawData, fallbackSettings) {
       return;
     }
 
+    const fingerprint = normalized.expense.fingerprint || buildExpenseFingerprint(normalized.expense);
+    const isDuplicate = existingFingerprints.has(fingerprint) || importedFingerprints.has(fingerprint);
+    if (isDuplicate) {
+      duplicateCount += 1;
+      if (skipDuplicates) {
+        skippedDuplicateCount += 1;
+        return;
+      }
+    }
+
+    importedFingerprints.add(fingerprint);
     expenses.push(normalized.expense);
+  });
+
+  const validationSummary = createValidationSummary({
+    totalCount: rawData.expenses.length,
+    importedCount: expenses.length,
+    failedCount: errors.length,
+    duplicateCount,
+    skippedDuplicateCount,
+    dryRun
   });
 
   return {
     ok: true,
+    dryRun,
     settings,
     monthlyBudgets: normalizeBudgetMap(rawData.monthlyBudgets),
     expenses,
-    errors
+    errors,
+    duplicateCount,
+    skippedDuplicateCount,
+    validationSummary
   };
 }
 
@@ -199,7 +280,7 @@ export function buildExportPayload({ expenses, settings, monthlyBudgets }) {
         return null;
       }
 
-      return {
+      const normalizedExpense = {
         id: expense.id,
         description: descriptionValidation.sanitized,
         amount: amountValidation.sanitized,
@@ -210,8 +291,15 @@ export function buildExportPayload({ expenses, settings, monthlyBudgets }) {
         updatedAt: expense.updatedAt || null,
         schemaVersion: SCHEMA_VERSION
       };
+
+      return {
+        ...normalizedExpense,
+        fingerprint: expense.fingerprint || buildExpenseFingerprint(normalizedExpense)
+      };
     })
     .filter(Boolean);
+
+  const normalizedSettings = normalizeSettings(settings);
 
   return {
     errors,
@@ -219,12 +307,16 @@ export function buildExportPayload({ expenses, settings, monthlyBudgets }) {
       version: EXPORT_VERSION,
       exportDate: new Date().toISOString(),
       settings: {
-        displayNames: settings.displayNames,
-        payerAliases: settings.payerAliases,
-        settlements: settings.settlements || {},
+        displayNames: normalizedSettings.displayNames,
+        payerAliases: normalizedSettings.payerAliases,
+        settlements: normalizedSettings.settlements,
+        monthClosures: normalizedSettings.monthClosures,
+        quickTemplates: normalizedSettings.quickTemplates,
+        preferences: normalizedSettings.preferences,
         meta: {
           schemaVersion: SCHEMA_VERSION,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          dataRevision: Math.max(1, Number(normalizedSettings.meta?.dataRevision || 1))
         }
       },
       monthlyBudgets,
@@ -272,3 +364,4 @@ export function validateDisplayNames(displayNames) {
     }
   };
 }
+
