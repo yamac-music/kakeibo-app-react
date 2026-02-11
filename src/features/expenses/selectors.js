@@ -2,7 +2,7 @@ import { formatMonthYear } from './date';
 
 export function listExpensesByMonth(expenses, currentMonth, options = {}) {
   const monthKey = formatMonthYear(currentMonth);
-  const { searchTerm = '', isSearching = false } = options;
+  const { searchTerm = '', isSearching = true } = options;
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 

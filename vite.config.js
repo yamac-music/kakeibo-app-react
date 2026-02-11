@@ -46,6 +46,22 @@ export default defineConfig(({ mode }) => {
       globals: true,
       environment: 'jsdom',
       setupFiles: './src/test/setup.js',
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'html'],
+        include: ['src/features/expenses/**/*.js'],
+        exclude: [
+          'src/features/expenses/hooks/**',
+          'src/features/expenses/repositories/ExpenseRepository.js',
+          'src/features/expenses/repositories/firestoreExpenseRepository.js'
+        ],
+        thresholds: {
+          statements: 55,
+          branches: 45,
+          functions: 55,
+          lines: 55
+        }
+      }
     }
   }
 })

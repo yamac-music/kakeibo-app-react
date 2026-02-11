@@ -41,15 +41,20 @@ function setStorageItem(key, value) {
   }
 }
 
-function buildSettingsPayload(nextSettings) {
+function buildMeta(previousMeta) {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+    dataRevision: Math.max(1, Number(previousMeta?.dataRevision || 1)) + 1
+  };
+}
+
+function buildSettingsPayload(nextSettings, previousSettings) {
   return {
     ...nextSettings,
     user1Name: nextSettings.displayNames.user1,
     user2Name: nextSettings.displayNames.user2,
-    meta: {
-      schemaVersion: SCHEMA_VERSION,
-      updatedAt: new Date().toISOString()
-    }
+    meta: buildMeta(previousSettings?.meta || nextSettings?.meta)
   };
 }
 
@@ -95,14 +100,40 @@ function readSnapshot() {
   };
 }
 
-function persistSnapshot(snapshot) {
+function persistSnapshot(snapshot, previousSettings) {
   setStorageItem(DEMO_STORAGE_KEYS.EXPENSES, snapshot.expenses);
   setStorageItem(DEMO_STORAGE_KEYS.BUDGETS, snapshot.monthlyBudgets);
-  setStorageItem(DEMO_STORAGE_KEYS.SETTINGS, buildSettingsPayload(snapshot.settings));
+  setStorageItem(
+    DEMO_STORAGE_KEYS.SETTINGS,
+    buildSettingsPayload(snapshot.settings, previousSettings || snapshot.settings)
+  );
   setStorageItem(DEMO_STORAGE_KEYS.LEGACY_USER_NAMES, {
     user1Name: snapshot.settings.displayNames.user1,
     user2Name: snapshot.settings.displayNames.user2,
     updatedAt: new Date().toISOString()
+  });
+}
+
+function mergeSettings(currentSettings, patchSettings) {
+  const normalizedPatch = normalizeSettings(patchSettings || {});
+  return normalizeSettings({
+    ...currentSettings,
+    ...normalizedPatch,
+    settlements: {
+      ...(currentSettings?.settlements || {}),
+      ...(normalizedPatch?.settlements || {})
+    },
+    monthClosures: {
+      ...(currentSettings?.monthClosures || {}),
+      ...(normalizedPatch?.monthClosures || {})
+    },
+    quickTemplates: normalizedPatch.quickTemplates.length > 0
+      ? normalizedPatch.quickTemplates
+      : currentSettings.quickTemplates,
+    preferences: {
+      ...(currentSettings?.preferences || {}),
+      ...(normalizedPatch?.preferences || {})
+    }
   });
 }
 
@@ -159,7 +190,7 @@ export function createDemoExpenseRepository() {
         expenses
       };
 
-      persistSnapshot(snapshot);
+      persistSnapshot(snapshot, current.settings);
 
       return {
         success: true,
@@ -174,7 +205,7 @@ export function createDemoExpenseRepository() {
         expenses: current.expenses.filter((expense) => expense.id !== expenseId)
       };
 
-      persistSnapshot(snapshot);
+      persistSnapshot(snapshot, current.settings);
 
       return {
         success: true,
@@ -182,7 +213,15 @@ export function createDemoExpenseRepository() {
       };
     },
 
-    async saveDisplayNames({ displayNames, previousDisplayNames, payerAliases, settlements }) {
+    async saveDisplayNames({
+      displayNames,
+      previousDisplayNames,
+      payerAliases,
+      settlements,
+      monthClosures,
+      quickTemplates,
+      preferences
+    }) {
       const current = refreshSnapshot();
       const nextAliases = mergeAliasesWithDisplayNameChange(
         payerAliases,
@@ -192,19 +231,57 @@ export function createDemoExpenseRepository() {
 
       snapshot = {
         ...current,
-        settings: {
+        settings: normalizeSettings({
+          ...current.settings,
           displayNames,
           payerAliases: nextAliases,
           settlements: settlements || current.settings.settlements || {},
-          meta: {
-            schemaVersion: SCHEMA_VERSION,
-            updatedAt: new Date().toISOString()
+          monthClosures: monthClosures || current.settings.monthClosures || {},
+          quickTemplates: quickTemplates || current.settings.quickTemplates || [],
+          preferences: {
+            ...(current.settings.preferences || {}),
+            ...(preferences || {})
           }
-        }
+        })
       };
 
-      persistSnapshot(snapshot);
+      persistSnapshot(snapshot, current.settings);
 
+      return {
+        success: true,
+        snapshot: refreshSnapshot()
+      };
+    },
+
+    async saveQuickTemplates({ quickTemplates }) {
+      const current = refreshSnapshot();
+      snapshot = {
+        ...current,
+        settings: normalizeSettings({
+          ...current.settings,
+          quickTemplates
+        })
+      };
+      persistSnapshot(snapshot, current.settings);
+      return {
+        success: true,
+        snapshot: refreshSnapshot()
+      };
+    },
+
+    async savePreferences({ preferences }) {
+      const current = refreshSnapshot();
+      snapshot = {
+        ...current,
+        settings: normalizeSettings({
+          ...current.settings,
+          preferences: {
+            ...(current.settings.preferences || {}),
+            ...(preferences || {})
+          }
+        })
+      };
+      persistSnapshot(snapshot, current.settings);
       return {
         success: true,
         snapshot: refreshSnapshot()
@@ -215,20 +292,16 @@ export function createDemoExpenseRepository() {
       const current = refreshSnapshot();
       snapshot = {
         ...current,
-        settings: {
+        settings: normalizeSettings({
           ...current.settings,
           settlements: {
             ...(current.settings?.settlements || {}),
             [monthKey]: settlementRecord
-          },
-          meta: {
-            schemaVersion: SCHEMA_VERSION,
-            updatedAt: new Date().toISOString()
           }
-        }
+        })
       };
 
-      persistSnapshot(snapshot);
+      persistSnapshot(snapshot, current.settings);
 
       return {
         success: true,
@@ -245,18 +318,66 @@ export function createDemoExpenseRepository() {
 
       snapshot = {
         ...current,
-        settings: {
+        settings: normalizeSettings({
           ...current.settings,
-          settlements: nextSettlements,
-          meta: {
-            schemaVersion: SCHEMA_VERSION,
-            updatedAt: new Date().toISOString()
-          }
-        }
+          settlements: nextSettlements
+        })
       };
 
-      persistSnapshot(snapshot);
+      persistSnapshot(snapshot, current.settings);
 
+      return {
+        success: true,
+        snapshot: refreshSnapshot()
+      };
+    },
+
+    async saveMonthClosure({ monthKey, closureRecord }) {
+      const current = refreshSnapshot();
+      snapshot = {
+        ...current,
+        settings: normalizeSettings({
+          ...current.settings,
+          monthClosures: {
+            ...(current.settings?.monthClosures || {}),
+            [monthKey]: closureRecord
+          }
+        })
+      };
+      persistSnapshot(snapshot, current.settings);
+      return {
+        success: true,
+        snapshot: refreshSnapshot()
+      };
+    },
+
+    async reopenMonth({ monthKey, reason }) {
+      const current = refreshSnapshot();
+      const currentClosure = current.settings?.monthClosures?.[monthKey] || {};
+
+      snapshot = {
+        ...current,
+        settings: normalizeSettings({
+          ...current.settings,
+          monthClosures: {
+            ...(current.settings?.monthClosures || {}),
+            [monthKey]: {
+              ...currentClosure,
+              status: 'open',
+              closedAt: null,
+              reopenHistory: [
+                ...(Array.isArray(currentClosure?.reopenHistory) ? currentClosure.reopenHistory : []),
+                {
+                  reopenedAt: new Date().toISOString(),
+                  reason
+                }
+              ]
+            }
+          }
+        })
+      };
+
+      persistSnapshot(snapshot, current.settings);
       return {
         success: true,
         snapshot: refreshSnapshot()
@@ -270,7 +391,7 @@ export function createDemoExpenseRepository() {
         monthlyBudgets
       };
 
-      persistSnapshot(snapshot);
+      persistSnapshot(snapshot, current.settings);
 
       return {
         success: true,
@@ -278,15 +399,36 @@ export function createDemoExpenseRepository() {
       };
     },
 
-    async importData({ rawData, fallbackSettings }) {
+    async importData({ rawData, fallbackSettings, options = {} }) {
       const current = refreshSnapshot();
-      const normalized = normalizeImportPayload(rawData, fallbackSettings || current.settings);
+      const normalized = normalizeImportPayload(
+        rawData,
+        fallbackSettings || current.settings,
+        {
+          ...options,
+          existingFingerprints: current.expenses.map((expense) => expense.fingerprint).filter(Boolean)
+        }
+      );
 
       if (!normalized.ok) {
         return {
           success: false,
           importedCount: 0,
           failedCount: normalized.errors.length,
+          duplicateCount: 0,
+          validationSummary: normalized.validationSummary || null,
+          errors: normalized.errors
+        };
+      }
+
+      if (options?.dryRun) {
+        return {
+          success: true,
+          dryRun: true,
+          importedCount: normalized.expenses.length,
+          failedCount: normalized.errors.length,
+          duplicateCount: normalized.duplicateCount || 0,
+          validationSummary: normalized.validationSummary,
           errors: normalized.errors
         };
       }
@@ -298,26 +440,21 @@ export function createDemoExpenseRepository() {
 
       snapshot = {
         expenses: [...current.expenses, ...importedExpenses],
-        settings: {
-          ...current.settings,
-          ...normalized.settings,
-          settlements: {
-            ...(current.settings?.settlements || {}),
-            ...(normalized.settings?.settlements || {})
-          }
-        },
+        settings: mergeSettings(current.settings, normalized.settings),
         monthlyBudgets: {
           ...current.monthlyBudgets,
           ...normalized.monthlyBudgets
         }
       };
 
-      persistSnapshot(snapshot);
+      persistSnapshot(snapshot, current.settings);
 
       return {
         success: true,
         importedCount: importedExpenses.length,
         failedCount: normalized.errors.length,
+        duplicateCount: normalized.duplicateCount || 0,
+        validationSummary: normalized.validationSummary,
         errors: normalized.errors,
         snapshot: refreshSnapshot()
       };
@@ -348,3 +485,4 @@ export function createDemoExpenseRepository() {
     }
   };
 }
+

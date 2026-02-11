@@ -1,5 +1,5 @@
-export const SCHEMA_VERSION = '2.0';
-export const EXPORT_VERSION = '2.0';
+export const SCHEMA_VERSION = '2.1';
+export const EXPORT_VERSION = '2.1';
 
 export const DEFAULT_DISPLAY_NAMES = {
   user1: 'ユーザー1',
@@ -45,3 +45,6 @@ export const DEMO_STORAGE_KEYS = {
 };
 
 export const FIRESTORE_IMPORT_CHUNK_SIZE = 500;
+export const MAX_QUICK_TEMPLATES = 8;
+export const BACKUP_STORAGE_KEY = 'kakeibo_export_backups_v1';
+export const MAX_BACKUP_RECORDS = 3;

@@ -41,6 +41,53 @@ function toTimestamp(value) {
   return Timestamp.fromDate(new Date());
 }
 
+function buildMeta(previousMeta) {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+    dataRevision: Math.max(1, Number(previousMeta?.dataRevision || 1)) + 1
+  };
+}
+
+function mergeSettings(currentSettings, patchSettings) {
+  const normalizedPatch = normalizeSettings(patchSettings || {});
+  return normalizeSettings({
+    ...currentSettings,
+    ...normalizedPatch,
+    settlements: {
+      ...(currentSettings?.settlements || {}),
+      ...(normalizedPatch?.settlements || {})
+    },
+    monthClosures: {
+      ...(currentSettings?.monthClosures || {}),
+      ...(normalizedPatch?.monthClosures || {})
+    },
+    quickTemplates: normalizedPatch.quickTemplates.length > 0
+      ? normalizedPatch.quickTemplates
+      : currentSettings.quickTemplates,
+    preferences: {
+      ...(currentSettings?.preferences || {}),
+      ...(normalizedPatch?.preferences || {})
+    }
+  });
+}
+
+function buildSettingsDoc(currentUserId, settings, previousMeta) {
+  return {
+    uid: currentUserId,
+    displayNames: settings.displayNames,
+    payerAliases: settings.payerAliases,
+    settlements: settings.settlements,
+    monthClosures: settings.monthClosures,
+    quickTemplates: settings.quickTemplates,
+    preferences: settings.preferences,
+    user1Name: settings.displayNames.user1,
+    user2Name: settings.displayNames.user2,
+    meta: buildMeta(previousMeta),
+    updatedAt: Timestamp.fromDate(new Date())
+  };
+}
+
 export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
   const expensesPath = `artifacts/${appId}/users/${currentUserId}/expenses`;
   const userSettingsPath = `artifacts/${appId}/users/${currentUserId}/settings/userNames`;
@@ -144,28 +191,37 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
       };
     },
 
-    async saveDisplayNames({ displayNames, previousDisplayNames, payerAliases, settlements }) {
+    async saveDisplayNames({
+      displayNames,
+      previousDisplayNames,
+      payerAliases,
+      settlements,
+      monthClosures,
+      quickTemplates,
+      preferences
+    }) {
       const nextAliases = mergeAliasesWithDisplayNameChange(
         payerAliases,
         previousDisplayNames,
         displayNames
       );
 
+      const mergedSettings = normalizeSettings({
+        ...cachedSnapshot.settings,
+        displayNames,
+        payerAliases: nextAliases,
+        settlements: settlements || cachedSnapshot.settings?.settlements || {},
+        monthClosures: monthClosures || cachedSnapshot.settings?.monthClosures || {},
+        quickTemplates: quickTemplates || cachedSnapshot.settings?.quickTemplates || [],
+        preferences: {
+          ...(cachedSnapshot.settings?.preferences || {}),
+          ...(preferences || {})
+        }
+      });
+
       await setDoc(
         doc(db, userSettingsPath),
-        {
-          uid: currentUserId,
-          displayNames,
-          payerAliases: nextAliases,
-          settlements: settlements || cachedSnapshot.settings?.settlements || {},
-          user1Name: displayNames.user1,
-          user2Name: displayNames.user2,
-          meta: {
-            schemaVersion: SCHEMA_VERSION,
-            updatedAt: new Date().toISOString()
-          },
-          updatedAt: Timestamp.fromDate(new Date())
-        },
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
         { merge: true }
       );
 
@@ -174,23 +230,51 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
       };
     },
 
-    async saveSettlementCompletion({ monthKey, settlementRecord }) {
-      const nextSettlements = {
-        ...(cachedSnapshot.settings?.settlements || {}),
-        [monthKey]: settlementRecord
-      };
+    async saveQuickTemplates({ quickTemplates }) {
+      const mergedSettings = normalizeSettings({
+        ...cachedSnapshot.settings,
+        quickTemplates
+      });
 
       await setDoc(
         doc(db, userSettingsPath),
-        {
-          uid: currentUserId,
-          settlements: nextSettlements,
-          meta: {
-            schemaVersion: SCHEMA_VERSION,
-            updatedAt: new Date().toISOString()
-          },
-          updatedAt: Timestamp.fromDate(new Date())
-        },
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
+        { merge: true }
+      );
+
+      return { success: true };
+    },
+
+    async savePreferences({ preferences }) {
+      const mergedSettings = normalizeSettings({
+        ...cachedSnapshot.settings,
+        preferences: {
+          ...(cachedSnapshot.settings?.preferences || {}),
+          ...(preferences || {})
+        }
+      });
+
+      await setDoc(
+        doc(db, userSettingsPath),
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
+        { merge: true }
+      );
+
+      return { success: true };
+    },
+
+    async saveSettlementCompletion({ monthKey, settlementRecord }) {
+      const mergedSettings = normalizeSettings({
+        ...cachedSnapshot.settings,
+        settlements: {
+          ...(cachedSnapshot.settings?.settlements || {}),
+          [monthKey]: settlementRecord
+        }
+      });
+
+      await setDoc(
+        doc(db, userSettingsPath),
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
         { merge: true }
       );
 
@@ -205,17 +289,14 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
       };
       delete nextSettlements[monthKey];
 
+      const mergedSettings = normalizeSettings({
+        ...cachedSnapshot.settings,
+        settlements: nextSettlements
+      });
+
       await setDoc(
         doc(db, userSettingsPath),
-        {
-          uid: currentUserId,
-          settlements: nextSettlements,
-          meta: {
-            schemaVersion: SCHEMA_VERSION,
-            updatedAt: new Date().toISOString()
-          },
-          updatedAt: Timestamp.fromDate(new Date())
-        },
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
         { merge: true }
       );
 
@@ -224,14 +305,59 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
       };
     },
 
+    async saveMonthClosure({ monthKey, closureRecord }) {
+      const mergedSettings = normalizeSettings({
+        ...cachedSnapshot.settings,
+        monthClosures: {
+          ...(cachedSnapshot.settings?.monthClosures || {}),
+          [monthKey]: closureRecord
+        }
+      });
+
+      await setDoc(
+        doc(db, userSettingsPath),
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
+        { merge: true }
+      );
+
+      return { success: true };
+    },
+
+    async reopenMonth({ monthKey, reason }) {
+      const currentClosure = cachedSnapshot.settings?.monthClosures?.[monthKey] || {};
+      const mergedSettings = normalizeSettings({
+        ...cachedSnapshot.settings,
+        monthClosures: {
+          ...(cachedSnapshot.settings?.monthClosures || {}),
+          [monthKey]: {
+            ...currentClosure,
+            status: 'open',
+            closedAt: null,
+            reopenHistory: [
+              ...(Array.isArray(currentClosure?.reopenHistory) ? currentClosure.reopenHistory : []),
+              {
+                reopenedAt: new Date().toISOString(),
+                reason
+              }
+            ]
+          }
+        }
+      });
+
+      await setDoc(
+        doc(db, userSettingsPath),
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
+        { merge: true }
+      );
+
+      return { success: true };
+    },
+
     async saveBudgets(monthlyBudgets) {
       await setDoc(doc(db, budgetPath), {
         uid: currentUserId,
         monthlyBudgets,
-        meta: {
-          schemaVersion: SCHEMA_VERSION,
-          updatedAt: new Date().toISOString()
-        },
+        meta: buildMeta(cachedSnapshot.settings?.meta),
         updatedAt: Timestamp.fromDate(new Date())
       });
 
@@ -240,13 +366,30 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
       };
     },
 
-    async importData({ rawData, fallbackSettings }) {
-      const normalized = normalizeImportPayload(rawData, fallbackSettings);
+    async importData({ rawData, fallbackSettings, options = {} }) {
+      const normalized = normalizeImportPayload(rawData, fallbackSettings, {
+        ...options,
+        existingFingerprints: cachedSnapshot.expenses.map((expense) => expense.fingerprint).filter(Boolean)
+      });
       if (!normalized.ok) {
         return {
           success: false,
           importedCount: 0,
           failedCount: normalized.errors.length,
+          duplicateCount: 0,
+          validationSummary: normalized.validationSummary || null,
+          errors: normalized.errors
+        };
+      }
+
+      if (options?.dryRun) {
+        return {
+          success: true,
+          dryRun: true,
+          importedCount: normalized.expenses.length,
+          failedCount: normalized.errors.length,
+          duplicateCount: normalized.duplicateCount || 0,
+          validationSummary: normalized.validationSummary,
           errors: normalized.errors
         };
       }
@@ -269,24 +412,10 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
         }
       );
 
+      const mergedSettings = mergeSettings(cachedSnapshot.settings, normalized.settings);
       await setDoc(
         doc(db, userSettingsPath),
-        {
-          uid: currentUserId,
-          displayNames: normalized.settings.displayNames,
-          payerAliases: normalized.settings.payerAliases,
-          settlements: {
-            ...(cachedSnapshot.settings?.settlements || {}),
-            ...(normalized.settings?.settlements || {})
-          },
-          user1Name: normalized.settings.displayNames.user1,
-          user2Name: normalized.settings.displayNames.user2,
-          meta: {
-            schemaVersion: SCHEMA_VERSION,
-            updatedAt: new Date().toISOString()
-          },
-          updatedAt: Timestamp.fromDate(new Date())
-        },
+        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
         { merge: true }
       );
 
@@ -299,10 +428,7 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
               ...(cachedSnapshot.monthlyBudgets || {}),
               ...normalized.monthlyBudgets
             },
-            meta: {
-              schemaVersion: SCHEMA_VERSION,
-              updatedAt: new Date().toISOString()
-            },
+            meta: buildMeta(cachedSnapshot.settings?.meta),
             updatedAt: Timestamp.fromDate(new Date())
           },
           { merge: true }
@@ -313,6 +439,8 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
         success: true,
         importedCount,
         failedCount: normalized.errors.length,
+        duplicateCount: normalized.duplicateCount || 0,
+        validationSummary: normalized.validationSummary,
         errors: normalized.errors
       };
     },
@@ -342,3 +470,4 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
     }
   };
 }
+
