@@ -62,9 +62,6 @@ function mergeSettings(currentSettings, patchSettings) {
       ...(currentSettings?.monthClosures || {}),
       ...(normalizedPatch?.monthClosures || {})
     },
-    quickTemplates: normalizedPatch.quickTemplates.length > 0
-      ? normalizedPatch.quickTemplates
-      : currentSettings.quickTemplates,
     preferences: {
       ...(currentSettings?.preferences || {}),
       ...(normalizedPatch?.preferences || {})
@@ -79,7 +76,6 @@ function buildSettingsDoc(currentUserId, settings, previousMeta) {
     payerAliases: settings.payerAliases,
     settlements: settings.settlements,
     monthClosures: settings.monthClosures,
-    quickTemplates: settings.quickTemplates,
     preferences: settings.preferences,
     user1Name: settings.displayNames.user1,
     user2Name: settings.displayNames.user2,
@@ -197,7 +193,6 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
       payerAliases,
       settlements,
       monthClosures,
-      quickTemplates,
       preferences
     }) {
       const nextAliases = mergeAliasesWithDisplayNameChange(
@@ -212,7 +207,6 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
         payerAliases: nextAliases,
         settlements: settlements || cachedSnapshot.settings?.settlements || {},
         monthClosures: monthClosures || cachedSnapshot.settings?.monthClosures || {},
-        quickTemplates: quickTemplates || cachedSnapshot.settings?.quickTemplates || [],
         preferences: {
           ...(cachedSnapshot.settings?.preferences || {}),
           ...(preferences || {})
@@ -228,21 +222,6 @@ export function createFirestoreExpenseRepository({ db, appId, currentUserId }) {
       return {
         success: true
       };
-    },
-
-    async saveQuickTemplates({ quickTemplates }) {
-      const mergedSettings = normalizeSettings({
-        ...cachedSnapshot.settings,
-        quickTemplates
-      });
-
-      await setDoc(
-        doc(db, userSettingsPath),
-        buildSettingsDoc(currentUserId, mergedSettings, cachedSnapshot.settings?.meta),
-        { merge: true }
-      );
-
-      return { success: true };
     },
 
     async savePreferences({ preferences }) {

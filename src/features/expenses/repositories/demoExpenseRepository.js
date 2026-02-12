@@ -127,9 +127,6 @@ function mergeSettings(currentSettings, patchSettings) {
       ...(currentSettings?.monthClosures || {}),
       ...(normalizedPatch?.monthClosures || {})
     },
-    quickTemplates: normalizedPatch.quickTemplates.length > 0
-      ? normalizedPatch.quickTemplates
-      : currentSettings.quickTemplates,
     preferences: {
       ...(currentSettings?.preferences || {}),
       ...(normalizedPatch?.preferences || {})
@@ -219,7 +216,6 @@ export function createDemoExpenseRepository() {
       payerAliases,
       settlements,
       monthClosures,
-      quickTemplates,
       preferences
     }) {
       const current = refreshSnapshot();
@@ -237,7 +233,6 @@ export function createDemoExpenseRepository() {
           payerAliases: nextAliases,
           settlements: settlements || current.settings.settlements || {},
           monthClosures: monthClosures || current.settings.monthClosures || {},
-          quickTemplates: quickTemplates || current.settings.quickTemplates || [],
           preferences: {
             ...(current.settings.preferences || {}),
             ...(preferences || {})
@@ -247,22 +242,6 @@ export function createDemoExpenseRepository() {
 
       persistSnapshot(snapshot, current.settings);
 
-      return {
-        success: true,
-        snapshot: refreshSnapshot()
-      };
-    },
-
-    async saveQuickTemplates({ quickTemplates }) {
-      const current = refreshSnapshot();
-      snapshot = {
-        ...current,
-        settings: normalizeSettings({
-          ...current.settings,
-          quickTemplates
-        })
-      };
-      persistSnapshot(snapshot, current.settings);
       return {
         success: true,
         snapshot: refreshSnapshot()

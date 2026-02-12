@@ -123,10 +123,8 @@ export default function Home({ isDemoMode = false }) {
           onSearchTermChange={actions.setSearchTerm}
           onClearSearch={actions.clearSearch}
           displayNames={state.settingsState.displayNames}
-          quickTemplates={state.settingsState.quickTemplates || []}
           recurringSuggestions={derived.recurringSuggestions}
           currentMonthClosed={derived.isCurrentMonthClosed}
-          onQuickAddTemplate={actions.handleQuickAddFromTemplate}
           onQuickAddSuggestion={actions.handleQuickAddFromSuggestion}
           onEditExpense={actions.openEditExpenseForm}
           onDeleteExpense={actions.handleDeleteExpense}
@@ -163,13 +161,10 @@ export default function Home({ isDemoMode = false }) {
       {state.showSettingsModal && (
         <SettingsModal
           displayNames={state.settingsState.displayNames}
-          categories={CATEGORIES}
-          quickTemplates={state.settingsState.quickTemplates}
           monthClosures={state.settingsState.monthClosures}
           backupRecords={state.backupRecords}
           suggestionsEnabled={state.settingsState.preferences?.suggestionsEnabled}
           onSaveDisplayNames={actions.handleSaveDisplayNames}
-          onSaveQuickTemplates={actions.handleSaveQuickTemplates}
           onToggleSuggestions={actions.handleToggleSuggestions}
           onCreateBackup={actions.handleCreateManualBackup}
           onRestoreBackup={actions.handleRestoreBackup}

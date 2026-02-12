@@ -36,7 +36,6 @@ function buildSettingsState(settings) {
     },
     settlements: settings?.settlements || {},
     monthClosures: settings?.monthClosures || {},
-    quickTemplates: settings?.quickTemplates || [],
     preferences: settings?.preferences || { suggestionsEnabled: true },
     meta: settings?.meta || {}
   };
@@ -439,14 +438,6 @@ export function useHomeController({
     }
   }, [repository, settingsState, applySnapshot, pushNotification]);
 
-  const saveQuickTemplates = useCallback(async (nextQuickTemplates) => {
-    if (!repository?.saveQuickTemplates) return;
-    const result = await repository.saveQuickTemplates({ quickTemplates: nextQuickTemplates });
-    if (result.snapshot) {
-      applySnapshot(result.snapshot);
-    }
-  }, [repository, applySnapshot]);
-
   const handleAddOrUpdateExpense = useCallback(async (expenseFormData) => {
     if (!repository) return;
 
@@ -481,21 +472,6 @@ export function useHomeController({
     setLastExpenseDraft(nextDraft);
     writeLastExpenseDraft(nextDraft);
 
-    if (expenseFormData.saveAsTemplate) {
-      const existing = settingsState.quickTemplates || [];
-      const nextTemplate = {
-        id: `tpl-${Date.now()}`,
-        label: expenseFormData.description,
-        amount: Number(expenseFormData.amount),
-        category: expenseFormData.category,
-        payerId: expenseFormData.payerId,
-        lastUsedAt: new Date().toISOString()
-      };
-      const deduped = [nextTemplate, ...existing.filter((item) => item.label !== nextTemplate.label)]
-        .slice(0, 8);
-      await saveQuickTemplates(deduped);
-    }
-
     setShowExpenseForm(false);
     setEditingExpense(null);
 
@@ -511,41 +487,8 @@ export function useHomeController({
     expenses,
     requestConfirm,
     persistExpense,
-    settingsState.quickTemplates,
-    saveQuickTemplates,
     pushNotification
   ]);
-
-  const handleQuickAddFromTemplate = useCallback(async (template) => {
-    const writable = await ensureMonthOpenForWrite();
-    if (!writable) return;
-
-    const result = await persistExpense({
-      expensePayload: {
-        description: template.label,
-        amount: template.amount,
-        category: template.category,
-        payerId: template.payerId,
-        date: formatDateToInput(new Date())
-      },
-      existingExpense: null
-    });
-
-    if (!result.ok) return;
-
-    const nextTemplates = (settingsState.quickTemplates || []).map((item) => (
-      item.id === template.id
-        ? { ...item, lastUsedAt: new Date().toISOString() }
-        : item
-    ));
-    await saveQuickTemplates(nextTemplates);
-
-    pushNotification({
-      type: 'success',
-      title: 'クイック登録完了',
-      message: `${template.label} を登録しました。`
-    });
-  }, [ensureMonthOpenForWrite, persistExpense, settingsState.quickTemplates, saveQuickTemplates, pushNotification]);
 
   const handleQuickAddFromSuggestion = useCallback(async (suggestion) => {
     const writable = await ensureMonthOpenForWrite();
@@ -648,7 +591,6 @@ export function useHomeController({
         payerAliases: settingsState.payerAliases,
         settlements: settingsState.settlements,
         monthClosures: settingsState.monthClosures,
-        quickTemplates: settingsState.quickTemplates,
         preferences: settingsState.preferences
       });
 
@@ -678,23 +620,6 @@ export function useHomeController({
       });
     }
   }, [repository, settingsState, applySnapshot, pushNotification]);
-
-  const handleSaveQuickTemplates = useCallback(async (nextQuickTemplates) => {
-    try {
-      await saveQuickTemplates(nextQuickTemplates);
-      pushNotification({
-        type: 'success',
-        title: '保存完了',
-        message: 'クイックテンプレートを保存しました。'
-      });
-    } catch (error) {
-      pushNotification({
-        type: 'error',
-        title: '保存失敗',
-        message: error?.message || 'クイックテンプレートの保存に失敗しました。'
-      });
-    }
-  }, [saveQuickTemplates, pushNotification]);
 
   const handleToggleSuggestions = useCallback(async (enabled) => {
     if (!repository?.savePreferences) return;
@@ -1201,16 +1126,14 @@ export function useHomeController({
 
   const initialExpenseDraft = useMemo(() => {
     if (editingExpense) return null;
-    const fallbackPayerId = settingsState.quickTemplates?.[0]?.payerId || '';
-    const fallbackCategory = settingsState.quickTemplates?.[0]?.category || CATEGORIES[0];
     return {
       description: '',
       amount: '',
-      category: lastExpenseDraft?.category || fallbackCategory,
-      payerId: lastExpenseDraft?.payerId || fallbackPayerId,
+      category: lastExpenseDraft?.category || CATEGORIES[0],
+      payerId: lastExpenseDraft?.payerId || '',
       date: lastExpenseDraft?.date || formatDateToInput(new Date())
     };
-  }, [editingExpense, settingsState.quickTemplates, lastExpenseDraft]);
+  }, [editingExpense, lastExpenseDraft]);
 
   const userDisplay = currentUser?.displayName || currentUser?.email || 'ゲストユーザー';
 
@@ -1279,9 +1202,7 @@ export function useHomeController({
       openEditExpenseForm,
       clearSearch,
       pushNotification,
-      handleQuickAddFromTemplate,
       handleQuickAddFromSuggestion,
-      handleSaveQuickTemplates,
       handleCreateManualBackup,
       handleRestoreBackup,
       handleToggleSuggestions,

@@ -2,8 +2,7 @@ import {
   Edit3,
   Info,
   Search,
-  Trash2,
-  Zap
+  Trash2
 } from 'lucide-react';
 import { getDisplayNameFromPayerId } from '../../features/expenses';
 
@@ -25,10 +24,8 @@ export default function ExpenseListPanel({
   onSearchTermChange,
   onClearSearch,
   displayNames,
-  quickTemplates,
   recurringSuggestions,
   currentMonthClosed,
-  onQuickAddTemplate,
   onQuickAddSuggestion,
   onEditExpense,
   onDeleteExpense
@@ -45,38 +42,21 @@ export default function ExpenseListPanel({
         </div>
       )}
 
-      {(quickTemplates.length > 0 || recurringSuggestions.length > 0) && (
+      {recurringSuggestions.length > 0 && (
         <div className="mb-4 space-y-2">
-          {quickTemplates.length > 0 && (
-            <div>
-              <div className="text-xs text-slate-500 mb-1">クイック登録テンプレート</div>
-              <div className="flex flex-wrap gap-2">
-                {quickTemplates.map((template) => (
-                  <QuickButton
-                    key={template.id}
-                    label={template.label}
-                    subLabel={`${template.amount.toLocaleString()}円`}
-                    onClick={() => onQuickAddTemplate(template)}
-                  />
-                ))}
-              </div>
+          <div>
+            <div className="text-xs text-slate-500 mb-1">固定費候補</div>
+            <div className="flex flex-wrap gap-2">
+              {recurringSuggestions.map((suggestion) => (
+                <QuickButton
+                  key={`${suggestion.fingerprint}-${suggestion.description}`}
+                  label={suggestion.description}
+                  subLabel={`${suggestion.amount.toLocaleString()}円`}
+                  onClick={() => onQuickAddSuggestion(suggestion)}
+                />
+              ))}
             </div>
-          )}
-          {recurringSuggestions.length > 0 && (
-            <div>
-              <div className="text-xs text-slate-500 mb-1">固定費候補</div>
-              <div className="flex flex-wrap gap-2">
-                {recurringSuggestions.map((suggestion) => (
-                  <QuickButton
-                    key={`${suggestion.fingerprint}-${suggestion.description}`}
-                    label={suggestion.description}
-                    subLabel={`${suggestion.amount.toLocaleString()}円`}
-                    onClick={() => onQuickAddSuggestion(suggestion)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -126,12 +106,6 @@ export default function ExpenseListPanel({
                       <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-full">
                         {expense.category}
                       </span>
-                      {expense.quickAdded && (
-                        <span className="px-2 py-0.5 bg-sky-100 text-sky-700 text-xs rounded-full inline-flex items-center gap-1">
-                          <Zap size={10} />
-                          Quick
-                        </span>
-                      )}
                     </div>
                     <div className="text-sm text-slate-600">
                       {new Date(expense.date).toLocaleDateString('ja-JP')} -

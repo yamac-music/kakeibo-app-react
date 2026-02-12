@@ -11,7 +11,6 @@ import {
   normalizeDisplayNames,
   normalizeMonthClosures,
   normalizePayerAliases,
-  normalizeQuickTemplates,
   normalizeSettlementRecords,
   normalizeSettings,
   resolvePayerId
@@ -75,9 +74,6 @@ function parseImportSettings(rawData, fallbackSettings) {
     ),
     monthClosures: normalizeMonthClosures(
       rawData?.settings?.monthClosures || normalizedFallback?.monthClosures
-    ),
-    quickTemplates: normalizeQuickTemplates(
-      rawData?.settings?.quickTemplates || normalizedFallback?.quickTemplates
     ),
     preferences: {
       suggestionsEnabled:
@@ -311,7 +307,6 @@ export function buildExportPayload({ expenses, settings, monthlyBudgets }) {
         payerAliases: normalizedSettings.payerAliases,
         settlements: normalizedSettings.settlements,
         monthClosures: normalizedSettings.monthClosures,
-        quickTemplates: normalizedSettings.quickTemplates,
         preferences: normalizedSettings.preferences,
         meta: {
           schemaVersion: SCHEMA_VERSION,

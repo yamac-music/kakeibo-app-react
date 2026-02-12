@@ -32,7 +32,6 @@ export default function ExpenseFormModal({
   onNotify
 }) {
   const [formState, setFormState] = useState(() => buildInitialFormState(editingExpense, initialDraft, categories));
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
 
   const descriptionInputRef = useRef(null);
   const amountInputRef = useRef(null);
@@ -40,7 +39,6 @@ export default function ExpenseFormModal({
 
   useEffect(() => {
     setFormState(buildInitialFormState(editingExpense, initialDraft, categories));
-    setSaveAsTemplate(false);
   }, [editingExpense, initialDraft, categories]);
 
   useEffect(() => {
@@ -76,8 +74,7 @@ export default function ExpenseFormModal({
       amount: parseInt(formState.amount, 10),
       category: formState.category,
       payerId: formState.payerId,
-      date: formState.date,
-      saveAsTemplate
+      date: formState.date
     });
   };
 
@@ -174,17 +171,6 @@ export default function ExpenseFormModal({
               required
             />
           </div>
-
-          {!editingExpense && (
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={saveAsTemplate}
-                onChange={(event) => setSaveAsTemplate(event.target.checked)}
-              />
-              この内容をクイックテンプレートとして保存する
-            </label>
-          )}
 
           <div className="flex gap-3 pt-4">
             <button
