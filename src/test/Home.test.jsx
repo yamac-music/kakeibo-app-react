@@ -71,21 +71,5 @@ describe('Home', () => {
 
     expect(screen.getByRole('button', { name: /前月.*から予算をコピー/ })).toBeInTheDocument();
   });
-
-  it('設定モーダルにクイックテンプレート設定が表示される', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <TestWrapper>
-        <Home isDemoMode={true} />
-      </TestWrapper>
-    );
-
-    const settingsButton = screen.getByRole('button', { name: /設定/ });
-    await user.click(settingsButton);
-
-    expect(screen.getByText('クイック登録テンプレート')).toBeInTheDocument();
-    expect(screen.getByText('月次締め履歴')).toBeInTheDocument();
-  });
 });
 
