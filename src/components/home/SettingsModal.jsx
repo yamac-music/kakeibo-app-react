@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Download,
-  Plus,
   Save,
   ShieldCheck,
   Upload,
   XCircle
 } from 'lucide-react';
-import { MAX_QUICK_TEMPLATES } from '../../features/expenses';
-
 function sortClosureHistory(monthClosures) {
   return Object.entries(monthClosures || {})
     .sort(([monthA], [monthB]) => monthB.localeCompare(monthA));
@@ -16,13 +13,10 @@ function sortClosureHistory(monthClosures) {
 
 export default function SettingsModal({
   displayNames,
-  categories,
-  quickTemplates,
   monthClosures,
   backupRecords,
   suggestionsEnabled,
   onSaveDisplayNames,
-  onSaveQuickTemplates,
   onToggleSuggestions,
   onCreateBackup,
   onRestoreBackup,
@@ -39,17 +33,6 @@ export default function SettingsModal({
 }) {
   const [tempUser1Name, setTempUser1Name] = useState(displayNames.user1);
   const [tempUser2Name, setTempUser2Name] = useState(displayNames.user2);
-  const [tempTemplates, setTempTemplates] = useState(quickTemplates || []);
-  const [newTemplate, setNewTemplate] = useState({
-    label: '',
-    amount: '',
-    category: categories?.[0] || '食費',
-    payerId: 'user1'
-  });
-
-  useEffect(() => {
-    setTempTemplates(quickTemplates || []);
-  }, [quickTemplates]);
 
   const closureHistory = useMemo(
     () => sortClosureHistory(monthClosures),
@@ -58,39 +41,6 @@ export default function SettingsModal({
 
   const handleSaveDisplayNamesClick = () => {
     onSaveDisplayNames(tempUser1Name, tempUser2Name);
-  };
-
-  const handleAddTemplate = () => {
-    if (tempTemplates.length >= MAX_QUICK_TEMPLATES) return;
-    const label = newTemplate.label.trim();
-    const amount = Number(newTemplate.amount);
-    if (!label || !Number.isFinite(amount) || amount <= 0) return;
-
-    const next = [
-      ...tempTemplates,
-      {
-        id: `tpl-${Date.now()}`,
-        label,
-        amount: Math.floor(amount),
-        category: newTemplate.category,
-        payerId: newTemplate.payerId,
-        lastUsedAt: null
-      }
-    ];
-    setTempTemplates(next);
-    setNewTemplate((prev) => ({
-      ...prev,
-      label: '',
-      amount: ''
-    }));
-  };
-
-  const handleRemoveTemplate = (templateId) => {
-    setTempTemplates((prev) => prev.filter((item) => item.id !== templateId));
-  };
-
-  const handleSaveTemplates = () => {
-    onSaveQuickTemplates(tempTemplates);
   };
 
   return (
@@ -137,84 +87,6 @@ export default function SettingsModal({
             >
               <Save size={16} />
               ユーザー名を保存
-            </button>
-          </section>
-
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium text-gray-700">クイック登録テンプレート</h4>
-              <span className="text-xs text-slate-500">{tempTemplates.length}/{MAX_QUICK_TEMPLATES}</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <input
-                type="text"
-                placeholder="ラベル"
-                value={newTemplate.label}
-                onChange={(event) => setNewTemplate((prev) => ({ ...prev, label: event.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              />
-              <input
-                type="number"
-                placeholder="金額"
-                min="1"
-                value={newTemplate.amount}
-                onChange={(event) => setNewTemplate((prev) => ({ ...prev, amount: event.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              />
-              <select
-                value={newTemplate.category}
-                onChange={(event) => setNewTemplate((prev) => ({ ...prev, category: event.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              >
-                {(categories || []).map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-              <select
-                value={newTemplate.payerId}
-                onChange={(event) => setNewTemplate((prev) => ({ ...prev, payerId: event.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="user1">{displayNames.user1}</option>
-                <option value="user2">{displayNames.user2}</option>
-              </select>
-            </div>
-
-            <button
-              onClick={handleAddTemplate}
-              disabled={tempTemplates.length >= MAX_QUICK_TEMPLATES}
-              className="mt-2 px-3 py-1.5 text-sm bg-sky-600 text-white rounded-md hover:bg-sky-700 disabled:bg-slate-400 inline-flex items-center gap-1"
-            >
-              <Plus size={14} />
-              テンプレート追加
-            </button>
-
-            {tempTemplates.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {tempTemplates.map((template) => (
-                  <div key={template.id} className="flex items-center justify-between border border-slate-200 rounded-md p-2 text-sm">
-                    <div>
-                      <span className="font-medium">{template.label}</span>
-                      <span className="ml-2 text-slate-500">{template.amount.toLocaleString()}円 / {template.category}</span>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveTemplate(template.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      削除
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <button
-              onClick={handleSaveTemplates}
-              className="mt-3 w-full bg-slate-700 text-white py-2 px-4 rounded-md hover:bg-slate-800 flex items-center justify-center gap-2"
-            >
-              <Save size={16} />
-              テンプレートを保存
             </button>
           </section>
 

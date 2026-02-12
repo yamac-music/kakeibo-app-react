@@ -1,8 +1,6 @@
 import {
-  CATEGORIES,
   DEFAULT_DISPLAY_NAMES,
   DEFAULT_PAYER_IDS,
-  MAX_QUICK_TEMPLATES,
   SCHEMA_VERSION
 } from './constants';
 import { formatDateToInput, normalizeDateString } from './date';
@@ -199,44 +197,6 @@ export function normalizeMonthClosures(rawClosures) {
   return normalized;
 }
 
-export function normalizeQuickTemplates(rawTemplates) {
-  if (!Array.isArray(rawTemplates)) {
-    return [];
-  }
-
-  const usedIds = new Set();
-  const normalized = [];
-
-  rawTemplates.forEach((template, index) => {
-    if (!template || typeof template !== 'object') return;
-    if (normalized.length >= MAX_QUICK_TEMPLATES) return;
-
-    const id = sanitizeString(template.id || `tpl-${index + 1}`);
-    if (!id || usedIds.has(id)) return;
-
-    const label = sanitizeString(template.label || template.description || '');
-    const amount = Number(template.amount);
-    const category = sanitizeString(template.category || '');
-    const payerId = isValidPayerId(template.payerId) ? template.payerId : null;
-
-    if (!label || !Number.isFinite(amount) || amount <= 0) return;
-    if (!CATEGORIES.includes(category)) return;
-    if (!payerId) return;
-
-    usedIds.add(id);
-    normalized.push({
-      id,
-      label,
-      amount: Math.floor(amount),
-      category,
-      payerId,
-      lastUsedAt: sanitizeIsoString(template.lastUsedAt)
-    });
-  });
-
-  return normalized;
-}
-
 function normalizeMeta(meta) {
   if (!meta || typeof meta !== 'object') {
     return {
@@ -262,7 +222,6 @@ export function normalizeSettings(rawSettings) {
     rawSettings?.settlements || rawSettings?.settlementHistory
   );
   const monthClosures = normalizeMonthClosures(rawSettings?.monthClosures);
-  const quickTemplates = normalizeQuickTemplates(rawSettings?.quickTemplates);
   const rawPreferences = rawSettings?.preferences || {};
   const preferences = {
     suggestionsEnabled: rawPreferences.suggestionsEnabled !== false
@@ -273,7 +232,6 @@ export function normalizeSettings(rawSettings) {
     payerAliases,
     settlements,
     monthClosures,
-    quickTemplates,
     preferences,
     meta: normalizeMeta(rawSettings?.meta)
   };

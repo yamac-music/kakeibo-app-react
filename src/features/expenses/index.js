@@ -2,7 +2,6 @@ export {
   CATEGORIES,
   EXPORT_VERSION,
   DEFAULT_DISPLAY_NAMES,
-  MAX_QUICK_TEMPLATES,
   PIE_CHART_COLORS
 } from './constants';
 export { formatMonthYear, formatDateToInput } from './date';

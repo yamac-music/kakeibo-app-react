@@ -45,6 +45,5 @@ export const DEMO_STORAGE_KEYS = {
 };
 
 export const FIRESTORE_IMPORT_CHUNK_SIZE = 500;
-export const MAX_QUICK_TEMPLATES = 8;
 export const BACKUP_STORAGE_KEY = 'kakeibo_export_backups_v1';
 export const MAX_BACKUP_RECORDS = 3;
