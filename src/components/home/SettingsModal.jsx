@@ -28,7 +28,9 @@ export default function SettingsModal({
   onRestoreBackup,
   onExportData,
   onImportData,
+  onZaimImport,
   fileInputRef,
+  zaimFileInputRef,
   onClose,
   onShowPrivacy,
   onShowTerms,
@@ -239,6 +241,23 @@ export default function SettingsModal({
               type="file"
               accept=".json"
               onChange={onImportData}
+              className="hidden"
+            />
+
+            <div className="mt-3">
+              <button
+                onClick={() => zaimFileInputRef.current?.click()}
+                className="w-full bg-teal-600 text-white py-2 px-4 rounded-md hover:bg-teal-700 flex items-center justify-center gap-2"
+              >
+                <Upload size={16} />
+                Zaim CSVインポート
+              </button>
+            </div>
+            <input
+              ref={zaimFileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={onZaimImport}
               className="hidden"
             />
 

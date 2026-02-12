@@ -17,6 +17,7 @@ import SettlementPanel from './home/SettlementPanel.jsx';
 import ExpenseListPanel from './home/ExpenseListPanel.jsx';
 import CategoryPiePanel from './home/CategoryPiePanel.jsx';
 import BudgetProgressPanel from './home/BudgetProgressPanel.jsx';
+import ZaimImportModal from './home/ZaimImportModal.jsx';
 import NotificationToast from './ui/NotificationToast.jsx';
 import ConfirmDialog from './ui/ConfirmDialog.jsx';
 import PromptDialog from './ui/PromptDialog.jsx';
@@ -174,7 +175,9 @@ export default function Home({ isDemoMode = false }) {
           onRestoreBackup={actions.handleRestoreBackup}
           onExportData={actions.handleExportData}
           onImportData={actions.handleImportData}
+          onZaimImport={actions.handleZaimImportFile}
           fileInputRef={state.fileInputRef}
+          zaimFileInputRef={state.zaimFileInputRef}
           onClose={() => actions.setShowSettingsModal(false)}
           onShowPrivacy={() => actions.setShowPrivacyModal(true)}
           onShowTerms={() => actions.setShowTermsModal(true)}
@@ -201,6 +204,16 @@ export default function Home({ isDemoMode = false }) {
 
       {state.showTermsModal && (
         <TermsModal onClose={() => actions.setShowTermsModal(false)} />
+      )}
+
+      {state.showZaimImportModal && (
+        <ZaimImportModal
+          parsedExpenses={state.zaimParsedExpenses}
+          displayNames={state.settingsState.displayNames}
+          categories={CATEGORIES}
+          onImport={actions.handleZaimImportConfirm}
+          onClose={() => actions.setShowZaimImportModal(false)}
+        />
       )}
 
       <IdleWarningModal
