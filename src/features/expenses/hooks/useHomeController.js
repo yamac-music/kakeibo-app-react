@@ -22,6 +22,7 @@ import {
   listBackups,
   restoreBackup
 } from '../backupStorage';
+import { mapZaimRowsToExpenses, parseZaimCsv } from '../zaimCsvParser';
 
 const DEFAULT_NOTIFICATION_DURATION = 4000;
 const LAST_EXPENSE_DRAFT_STORAGE_KEY = 'kakeibo_last_expense_draft_v1';
@@ -118,7 +119,11 @@ export function useHomeController({
   const [backupRecords, setBackupRecords] = useState(() => listBackups());
   const [lastExpenseDraft, setLastExpenseDraft] = useState(() => readLastExpenseDraft());
 
+  const [showZaimImportModal, setShowZaimImportModal] = useState(false);
+  const [zaimParsedExpenses, setZaimParsedExpenses] = useState([]);
+
   const fileInputRef = useRef(null);
+  const zaimFileInputRef = useRef(null);
 
   const repository = useMemo(
     () => createExpenseRepository({ isDemoMode, currentUserId: currentUser?.uid, db, appId }),
@@ -925,6 +930,113 @@ export function useHomeController({
     reader.readAsText(file);
   }, [repository, createBackupFromCurrent, settingsState, requestConfirm, applySnapshot, pushNotification]);
 
+  const handleZaimImportFile = useCallback((event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (readEvent) => {
+      try {
+        const csvText = readEvent.target.result;
+        const { rows, errors } = parseZaimCsv(csvText);
+
+        if (rows.length === 0) {
+          pushNotification({
+            type: 'error',
+            title: 'CSV解析失敗',
+            message: errors.length > 0
+              ? errors.slice(0, 3).join('\n')
+              : '取り込み可能な支払いデータが見つかりませんでした。'
+          });
+          return;
+        }
+
+        const mapped = mapZaimRowsToExpenses(rows);
+        setZaimParsedExpenses(mapped);
+        setShowZaimImportModal(true);
+
+        if (errors.length > 0) {
+          pushNotification({
+            type: 'warning',
+            title: 'CSV警告',
+            message: `${errors.length}件の行にエラーがありました。`
+          });
+        }
+      } catch {
+        pushNotification({
+          type: 'error',
+          title: 'CSVインポート失敗',
+          message: 'CSVの読み込みに失敗しました。ファイル形式を確認してください。'
+        });
+      } finally {
+        event.target.value = '';
+      }
+    };
+
+    reader.readAsText(file, 'UTF-8');
+  }, [pushNotification]);
+
+  const handleZaimImportConfirm = useCallback(async (selectedExpenses) => {
+    if (!repository) return;
+    if (selectedExpenses.length === 0) return;
+
+    createBackupFromCurrent('beforeZaimImport');
+
+    const rawData = {
+      expenses: selectedExpenses.map((item) => ({
+        description: item.description,
+        amount: item.amount,
+        category: item.category,
+        payerId: item.payerId,
+        date: item.date,
+      })),
+      settings: settingsState,
+    };
+
+    const dryRunResult = await repository.importData({
+      rawData,
+      fallbackSettings: settingsState,
+      options: { dryRun: true, skipDuplicates: true }
+    });
+
+    if (!dryRunResult.success) {
+      pushNotification({
+        type: 'error',
+        title: 'Zaimインポート検証失敗',
+        message: buildImportResultMessage(dryRunResult)
+      });
+      return;
+    }
+
+    const confirmed = await requestConfirm({
+      title: 'Zaimインポート確認',
+      message: `${buildImportPreviewMessage(dryRunResult)}\n\n取り込みを実行しますか？`,
+      confirmLabel: '実行する',
+      variant: 'warning'
+    });
+
+    if (!confirmed) return;
+
+    const result = await repository.importData({
+      rawData,
+      fallbackSettings: settingsState,
+      options: { dryRun: false, skipDuplicates: true }
+    });
+
+    if (result.snapshot) {
+      applySnapshot(result.snapshot);
+    }
+
+    setShowZaimImportModal(false);
+    setZaimParsedExpenses([]);
+
+    pushNotification({
+      type: result.success ? 'success' : 'error',
+      title: result.success ? 'Zaimインポート結果' : 'Zaimインポート失敗',
+      message: buildImportResultMessage(result)
+    });
+  }, [repository, settingsState, createBackupFromCurrent, requestConfirm, applySnapshot, pushNotification]);
+
   const handleCloseMonth = useCallback(async () => {
     if (!repository) return;
     if (isCurrentMonthClosed) {
@@ -1119,9 +1231,12 @@ export function useHomeController({
       confirmState,
       promptState,
       fileInputRef,
+      zaimFileInputRef,
       userDisplay,
       backupRecords,
-      initialExpenseDraft
+      initialExpenseDraft,
+      showZaimImportModal,
+      zaimParsedExpenses
     },
     derived: {
       monthlyFilteredExpenses,
@@ -1170,7 +1285,10 @@ export function useHomeController({
       handleCreateManualBackup,
       handleRestoreBackup,
       handleToggleSuggestions,
-      requestConfirm
+      requestConfirm,
+      handleZaimImportFile,
+      handleZaimImportConfirm,
+      setShowZaimImportModal
     }
   };
 }
