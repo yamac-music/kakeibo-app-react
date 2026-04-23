@@ -1015,7 +1015,7 @@ export function useHomeController({
       if (result.snapshot) applySnapshot(result.snapshot);
 
       if (settlementSnapshot) {
-        await repository.saveSettlementCompletion({
+        const settlementResult = await repository.saveSettlementCompletion({
           monthKey: currentMonthKey,
           settlementRecord: {
             monthKey: currentMonthKey,
@@ -1025,6 +1025,8 @@ export function useHomeController({
             completedAt: new Date().toISOString()
           }
         });
+
+        if (settlementResult.snapshot) applySnapshot(settlementResult.snapshot);
       }
 
       pushNotification({

@@ -1,6 +1,5 @@
 import {
   LogOut,
-  PlusCircle,
   Settings,
   Target,
   Wallet
@@ -54,98 +53,93 @@ export default function Home({ isDemoMode = false }) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 pb-24 md:p-6 lg:p-8 font-sans">
-      <header className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Wallet className="text-sky-700" size={28} />
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">二人暮らしの家計簿</h1>
-              <div className="text-sm text-slate-600">{state.userDisplay}</div>
+    <div className="min-h-screen bg-slate-100 px-3 py-3 pb-16 md:px-5 lg:px-6 font-sans">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Wallet className="text-sky-700" size={28} />
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">二人暮らしの家計簿</h1>
+                <div className="text-sm text-slate-500">{state.userDisplay}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => actions.setShowBudgetModal(true)}
+                aria-label="予算目標を設定"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <Target size={18} />
+                <span className="hidden sm:inline">目標</span>
+              </button>
+              <button
+                onClick={() => actions.setShowSettingsModal(true)}
+                aria-label="設定を開く"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <Settings size={18} />
+                <span className="hidden sm:inline">設定</span>
+              </button>
+              <button
+                onClick={actions.handleLogout}
+                aria-label="ログアウト"
+                className="flex items-center gap-2 px-4 py-2 bg-white text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors"
+              >
+                <LogOut size={18} />
+                <span className="hidden sm:inline">ログアウト</span>
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => actions.setShowBudgetModal(true)}
-              aria-label="予算目標を設定"
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors"
-            >
-              <Target size={18} />
-              <span className="hidden sm:inline">目標</span>
-            </button>
-            <button
-              onClick={() => actions.setShowSettingsModal(true)}
-              aria-label="設定を開く"
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors"
-            >
-              <Settings size={18} />
-              <span className="hidden sm:inline">設定</span>
-            </button>
-            <button
-              onClick={actions.handleLogout}
-              aria-label="ログアウト"
-              className="flex items-center gap-2 px-4 py-2 bg-white text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors"
-            >
-              <LogOut size={18} />
-              <span className="hidden sm:inline">ログアウト</span>
-            </button>
+        </header>
+
+        <MonthSummaryCard
+          currentMonth={state.currentMonth}
+          displayNames={state.settingsState.displayNames}
+          totals={derived.totals}
+          kpis={derived.kpis}
+          onNavigateMonth={actions.navigateMonth}
+        />
+
+        {shouldShowSettlementPanel && (
+          <div className="mb-3">
+            <SettlementPanel
+              settlement={derived.settlement}
+              currentMonth={state.currentMonth}
+              currentMonthSettlementRecord={derived.currentMonthSettlementRecord}
+              currentMonthClosure={derived.currentMonthClosure}
+              displayNames={state.settingsState.displayNames}
+              isSettlementOutdated={derived.isSettlementOutdated}
+              isClosureOutdated={derived.isClosureOutdated}
+              onCloseMonth={actions.handleCloseMonth}
+              onReopenMonth={actions.handleReopenMonth}
+            />
           </div>
-        </div>
-      </header>
+        )}
 
-      <MonthSummaryCard
-        currentMonth={state.currentMonth}
-        displayNames={state.settingsState.displayNames}
-        totals={derived.totals}
-        kpis={derived.kpis}
-        onNavigateMonth={actions.navigateMonth}
-      />
+        <BudgetProgressPanel budgetComparison={derived.budgetComparison} />
 
-      {shouldShowSettlementPanel && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <SettlementPanel
-            settlement={derived.settlement}
-            currentMonth={state.currentMonth}
-            currentMonthSettlementRecord={derived.currentMonthSettlementRecord}
-            currentMonthClosure={derived.currentMonthClosure}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+          <ExpenseListPanel
+            monthlyFilteredExpenses={derived.monthlyFilteredExpenses}
+            searchTerm={state.searchTerm}
+            onSearchTermChange={actions.setSearchTerm}
+            onClearSearch={actions.clearSearch}
             displayNames={state.settingsState.displayNames}
-            isSettlementOutdated={derived.isSettlementOutdated}
-            isClosureOutdated={derived.isClosureOutdated}
-            onCloseMonth={actions.handleCloseMonth}
-            onReopenMonth={actions.handleReopenMonth}
+            recurringSuggestions={derived.recurringSuggestions}
+            currentMonthClosed={derived.isCurrentMonthClosed}
+            onQuickAddSuggestion={actions.handleQuickAddFromSuggestion}
+            onEditExpense={actions.openEditExpenseForm}
+            onDeleteExpense={actions.handleDeleteExpense}
+            onAddExpense={actions.openNewExpenseForm}
+          />
+
+          <CategoryPiePanel
+            totals={derived.totals}
+            sixMonthTrend={derived.sixMonthTrend}
           />
         </div>
-      )}
-
-      <BudgetProgressPanel budgetComparison={derived.budgetComparison} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ExpenseListPanel
-          monthlyFilteredExpenses={derived.monthlyFilteredExpenses}
-          searchTerm={state.searchTerm}
-          onSearchTermChange={actions.setSearchTerm}
-          onClearSearch={actions.clearSearch}
-          displayNames={state.settingsState.displayNames}
-          recurringSuggestions={derived.recurringSuggestions}
-          currentMonthClosed={derived.isCurrentMonthClosed}
-          onQuickAddSuggestion={actions.handleQuickAddFromSuggestion}
-          onEditExpense={actions.openEditExpenseForm}
-          onDeleteExpense={actions.handleDeleteExpense}
-        />
-
-        <CategoryPiePanel
-          totals={derived.totals}
-          sixMonthTrend={derived.sixMonthTrend}
-        />
       </div>
-
-      <button
-        onClick={actions.openNewExpenseForm}
-        aria-label="支出を追加"
-        className="fixed bottom-6 right-6 w-14 h-14 bg-sky-600 text-white rounded-full shadow-lg hover:bg-sky-700 transition-all duration-200 flex items-center justify-center hover:scale-105"
-      >
-        <PlusCircle size={24} />
-      </button>
 
       {state.showExpenseForm && (
         <ExpenseFormModal

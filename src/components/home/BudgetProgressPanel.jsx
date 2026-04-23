@@ -6,13 +6,13 @@ export default function BudgetProgressPanel({ budgetComparison }) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-      <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+    <div className="bg-white rounded-lg shadow-sm p-4 mb-3">
+      <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
         <Target size={20} />
         今月の予算進捗
       </h3>
 
-      <div className="mb-4">
+      <div className="mb-3">
         <div className="flex justify-between text-sm text-slate-600 mb-2">
           <span>全体進捗</span>
           <span>{budgetComparison.totalSpent.toLocaleString()} / {budgetComparison.totalBudget.toLocaleString()}円</span>
@@ -37,7 +37,7 @@ export default function BudgetProgressPanel({ budgetComparison }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {Object.entries(budgetComparison.categories)
           .filter(([, data]) => data.budget > 0)
           .map(([category, data]) => (
@@ -72,4 +72,3 @@ export default function BudgetProgressPanel({ budgetComparison }) {
     </div>
   );
 }
-
