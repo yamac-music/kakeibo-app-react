@@ -21,7 +21,7 @@ describe('Home', () => {
     );
 
     expect(screen.getByPlaceholderText('支出を検索...')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /クリア/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /クリア/ })).not.toBeInTheDocument();
   });
 
   it('検索入力を即時更新できる', async () => {
@@ -72,4 +72,3 @@ describe('Home', () => {
     expect(screen.getByRole('button', { name: /前月.*から予算をコピー/ })).toBeInTheDocument();
   });
 });
-
