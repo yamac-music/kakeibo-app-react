@@ -22,10 +22,10 @@ export default function SettlementPanel({
   return (
     <div className="mt-6 space-y-3">
       {settlement.amount > 0 && !isClosed && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-center gap-3">
-            <TrendingUp className="text-yellow-600" size={20} />
-            <div className="text-yellow-800">
+            <TrendingUp className="text-amber-600" size={20} />
+            <div className="text-amber-900">
               <div className="font-semibold">精算が必要です</div>
               <div className="text-sm">{settlement.message}</div>
             </div>
@@ -99,4 +99,3 @@ export default function SettlementPanel({
     </div>
   );
 }
-

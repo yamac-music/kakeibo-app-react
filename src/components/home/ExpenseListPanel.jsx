@@ -121,12 +121,14 @@ export default function ExpenseListPanel({
                     </span>
                     <button
                       onClick={() => onEditExpense(expense)}
+                      aria-label="支出を編集"
                       className="p-1 text-blue-600 hover:bg-blue-100 rounded"
                     >
                       <Edit3 size={16} />
                     </button>
                     <button
                       onClick={() => onDeleteExpense(expense.id)}
+                      aria-label="支出を削除"
                       className="p-1 text-red-600 hover:bg-red-100 rounded"
                     >
                       <Trash2 size={16} />
@@ -141,4 +143,3 @@ export default function ExpenseListPanel({
     </div>
   );
 }
-

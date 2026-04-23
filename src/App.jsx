@@ -69,7 +69,7 @@ function DemoModeWrapper({ children }) {
                     </div>
                     <div className="ml-3">
                         <p className="text-sm text-yellow-700">
-                            <strong>デモモード:</strong> Firebase設定が無効のため、デモモードで動作しています。データはブラウザのlocalStorageに保存されます。
+                            <strong>デモモード:</strong> データはこのブラウザに保存されます。実際の操作感を試せます。
                         </p>
                     </div>
                 </div>

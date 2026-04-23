@@ -38,6 +38,8 @@ export function calculateMonthlyKpis({
   const monthOverMonthDelta = spent - previousSpent;
 
   return {
+    budgetTotal,
+    hasBudget: budgetTotal > 0,
     budgetDelta,
     monthOverMonthDelta,
     settlementForecast: Math.abs(totals.user1Total - totals.user2Total) / 2
@@ -167,4 +169,3 @@ export function suggestRecurringExpenses(expenses, currentMonth) {
     .sort((a, b) => b.sourceCount - a.sourceCount)
     .slice(0, 3);
 }
-
