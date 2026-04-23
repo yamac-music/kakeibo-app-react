@@ -45,32 +45,38 @@ export default function MonthSummaryCard({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-800">
           <div className="flex items-center gap-3">
-            <Users size={24} />
+            <div className="rounded-md bg-white p-2 text-slate-500 shadow-sm">
+              <Users size={20} />
+            </div>
             <div>
-              <div className="text-sm opacity-90">{displayNames.user1}</div>
-              <div className="text-2xl font-bold">{totals.user1Total.toLocaleString()}円</div>
+              <div className="text-sm text-slate-500">{displayNames.user1}</div>
+              <div className="text-2xl font-semibold">{totals.user1Total.toLocaleString()}円</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-800">
           <div className="flex items-center gap-3">
-            <Users size={24} />
+            <div className="rounded-md bg-white p-2 text-slate-500 shadow-sm">
+              <Users size={20} />
+            </div>
             <div>
-              <div className="text-sm opacity-90">{displayNames.user2}</div>
-              <div className="text-2xl font-bold">{totals.user2Total.toLocaleString()}円</div>
+              <div className="text-sm text-slate-500">{displayNames.user2}</div>
+              <div className="text-2xl font-semibold">{totals.user2Total.toLocaleString()}円</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+        <div className="rounded-lg border border-sky-100 bg-sky-50 p-4 text-slate-900">
           <div className="flex items-center gap-3">
-            <DollarSign size={24} />
+            <div className="rounded-md bg-white p-2 text-sky-700 shadow-sm">
+              <DollarSign size={20} />
+            </div>
             <div>
-              <div className="text-sm opacity-90">合計支出</div>
+              <div className="text-sm text-sky-800">合計支出</div>
               <div className="text-2xl font-bold">{totals.totalExpense.toLocaleString()}円</div>
             </div>
           </div>
@@ -83,9 +89,13 @@ export default function MonthSummaryCard({
             <Wallet size={14} />
             予算乖離
           </div>
-          <div className={`font-semibold ${kpis.budgetDelta >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-            {formatSignedAmount(kpis.budgetDelta)}
-          </div>
+          {kpis.hasBudget ? (
+            <div className={`font-semibold ${kpis.budgetDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+              {formatSignedAmount(kpis.budgetDelta)}
+            </div>
+          ) : (
+            <div className="font-semibold text-slate-500">未設定</div>
+          )}
         </div>
         <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
           <div className="text-slate-500 flex items-center gap-1">
@@ -104,4 +114,3 @@ export default function MonthSummaryCard({
     </div>
   );
 }
-
