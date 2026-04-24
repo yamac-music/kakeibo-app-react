@@ -22,7 +22,7 @@ describe('App', () => {
     
     // ランディングページの表示を確認
     expect(screen.getAllByText(/Futakake/)[0]).toBeInTheDocument()
-    expect(screen.getAllByText(/二人の家計管理/)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/二人の家計を/)[0]).toBeInTheDocument()
   })
 
   it('主な機能リストが表示される', () => {
@@ -34,7 +34,7 @@ describe('App', () => {
     
     // 機能リストの確認（実際のランディングページの要素を確認）
     expect(screen.getAllByText(/Futakake/)[0]).toBeInTheDocument()
-    expect(screen.getAllByText(/無料で始める/)[0]).toBeInTheDocument()
-    expect(screen.getAllByText(/デモを試す/)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/できること/)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/デモで試す/)[0]).toBeInTheDocument()
   })
 })
